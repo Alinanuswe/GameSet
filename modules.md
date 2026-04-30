@@ -52,6 +52,8 @@ SHADING_SYMBOLS = ['░', '▒', '█'] # Empty, Striped, Solid
 ### set_logic.py
 
 ```python
+from itertools import combinations
+
 def is_set(c1: Card, c2: Card, c3: Card) -> bool:
     """
     Returns True if the 3 cards form a valid SET.
@@ -66,6 +68,14 @@ def is_set(c1: Card, c2: Card, c3: Card) -> bool:
         if (c1[i] + c2[i] + c3[i]) % 3 != 0:
             return False
     return True
+
+
+def find_set(cards: list[Card]) -> tuple[int, int, int] | None:
+    """Return the first valid set of indices on the board, or None."""
+    for a, b, c in combinations(range(len(cards)), 3):
+        if is_set(cards[a], cards[b], cards[c]):
+            return a, b, c
+    return None
 ```
 
 ### deck.py
