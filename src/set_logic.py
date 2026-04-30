@@ -17,3 +17,12 @@ def find_set(cards: list[Card]) -> tuple[int, int, int] | None:
         if is_set(cards[a], cards[b], cards[c]):
             return a, b, c
     return None
+
+
+def find_all_sets(cards: list[Card]) -> list[tuple[int, int, int]]:
+    """Return all valid sets of indices on the board."""
+    return [
+        (a, b, c)
+        for a, b, c in combinations(range(len(cards)), 3)
+        if is_set(cards[a], cards[b], cards[c])
+    ]

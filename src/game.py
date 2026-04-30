@@ -1,6 +1,7 @@
+import csv
 from deck import create_deck, shuffle, deal
-from card import Card
-from set_logic import is_set, find_set
+from card import Card, SHAPE_SYMBOLS, COLOR_SYMBOLS, SHADING_SYMBOLS
+from set_logic import is_set, find_set, find_all_sets
 from board import Board
 
 
@@ -69,6 +70,44 @@ class Game:
 
     def get_hint(self) -> tuple[int, int, int] | None:
         return find_set(self.table)
+
+    def export_table_csv(self, filename: str) -> None:
+        """Export the current table to CSV, including numeric values and identified solutions."""
+        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([
+                'ID',
+                'Shape',
+                'Color',
+                'Number',
+                'Shading',
+                'Shape-Digit',
+                'Color-Digit',
+                'Number-Digit',
+                'Shading-Digit',
+            ])
+            for idx, card in enumerate(self.table, start=1):
+                shape, color, number, shading = card
+                writer.writerow([
+                    idx,
+                    SHAPE_SYMBOLS[shape],
+                    COLOR_SYMBOLS[color],
+                    number + 1,
+                    SHADING_SYMBOLS[shading],
+                    shape,
+                    color,
+                    number,
+                    shading,
+                ])
+            writer.writerow([])
+            writer.writerow(['Solutions identified:'])
+            solutions = find_all_sets(self.table)
+            if not solutions:
+                writer.writerow(['None'])
+            else:
+                writer.writerow(['Solution', 'Card 1', 'Card 2', 'Card 3'])
+                for solution_index, (a, b, c) in enumerate(solutions, start=1):
+                    writer.writerow([solution_index, a + 1, b + 1, c + 1])
 
     def is_game_over(self) -> bool:
         if self.board is None:

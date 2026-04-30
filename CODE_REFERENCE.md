@@ -168,6 +168,20 @@ This document explains every line of executable source code in the project. It i
 14. `    return None`
     - Returns `None` when no valid SET exists.
 
+15. `
+   def find_all_sets(cards: list[Card]) -> list[tuple[int, int, int]]:`
+    - Declares `find_all_sets`, which returns every valid SET of indices on the board.
+
+16. `    """Return all valid sets of indices on the board."""`
+    - Docstring describing the full board search.
+
+17. `    return [
+        (a, b, c)
+        for a, b, c in combinations(range(len(cards)), 3)
+        if is_set(cards[a], cards[b], cards[c])
+    ]`
+    - Uses `combinations` and `is_set` to produce a list of all valid SET triples.
+
 ---
 
 ## `src/board.py`
@@ -487,6 +501,52 @@ This document explains every line of executable source code in the project. It i
     - Delegates to `find_set`.
 
 63. `
+   def export_table_csv(self, filename: str) -> None:`
+    - Exports the current board to a CSV file for diagnostics and validation.
+
+64. `        """Export the current table to CSV, including numeric values and identified solutions."""`
+    - Writes each board card with both character and numeric values, then appends set solutions.
+
+65. `        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:`
+    - Opens the target file for writing with UTF-8 encoding.
+
+66. `            writer = csv.writer(csvfile)`
+    - Uses the standard CSV writer to generate the output rows.
+
+67. `            writer.writerow([...])`
+    - Writes the CSV header row with both display and digit columns.
+
+68. `            for idx, card in enumerate(self.table, start=1):`
+    - Writes each board card row, including visible and numeric values.
+
+69. `            writer.writerow([])`
+    - Adds a blank row before writing the solution summary.
+
+70. `            writer.writerow(['Solutions identified:'])`
+    - Adds the solutions section header.
+
+71. `            solutions = find_all_sets(self.table)`
+    - Finds all valid SETs on the current board.
+
+72. `            if not solutions:`
+    - Handles the no-solution case.
+
+73. `                writer.writerow(['None'])`
+    - Writes `None` if no sets are found.
+
+74. `            else:`
+    - Writes solution rows when sets are present.
+
+75. `                writer.writerow(['Solution', 'Card 1', 'Card 2', 'Card 3'])`
+    - Writes the solution header row.
+
+76. `                for solution_index, (a, b, c) in enumerate(solutions, start=1):`
+    - Writes each found solution as a row of card IDs.
+
+77. `                    writer.writerow([solution_index, a + 1, b + 1, c + 1])`
+    - Writes the one-based card indices for each solution.
+
+78. `
    def is_game_over(self) -> bool:`
     - Determines whether the game has ended.
 

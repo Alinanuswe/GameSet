@@ -13,7 +13,7 @@ def parse_selection(text: str) -> list[int]:
 
 def show_header() -> None:
     print('SET Game - CLI Version')
-    print('Commands: enter 3 numbers separated by spaces to select cards | d deal 3 more | h hint | o options | n new game | q quit')
+    print('Commands: enter 3 numbers separated by spaces to select cards | d deal 3 more | h hint | o options | x export csv | n new game | q quit')
     print('-' * 60)
 
 
@@ -94,6 +94,14 @@ def run() -> None:
                 print(f'Hint: try cards {hint[0] + 1}, {hint[1] + 1}, {hint[2] + 1}')
             else:
                 print('No valid SET found on the current board.')
+            continue
+
+        if command == 'x':
+            filename = input('Enter CSV filename to write (default board.csv): ').strip()
+            if not filename:
+                filename = 'board.csv'
+            game.export_table_csv(filename)
+            print(f'Exported current board to {filename}.')
             continue
 
         chosen_indices = parse_selection(command)
