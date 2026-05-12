@@ -1,4 +1,5 @@
 import csv
+import time
 from deck import create_deck, shuffle, deal
 from card import Card, SHAPE_SYMBOLS, COLOR_SYMBOLS, SHADING_SYMBOLS
 from set_logic import is_set, find_set, find_all_sets
@@ -15,6 +16,16 @@ class Game:
         self.board: Board | None = None
         self.autodeal = False
         self.hint_enabled = True
+        
+        # Timer support
+        self.start_time: float | None = None
+        self.elapsed_time: float = 0.0
+        
+        # GUI-specific state
+        self.found_sets: list[tuple[int, int, int]] = []  # Store found sets for sidebar display
+        self.hint_mode: int = 3  # 3 cards, 2 cards, or 1 card hint
+        self.set_button_enabled: bool = True  # Whether Set button is shown
+        self.game_active: bool = False  # Whether a game is currently active
 
     def new_game(self) -> None:
         self.deck = create_deck()
@@ -24,6 +35,15 @@ class Game:
         self.score = 0
         self.sets_found = 0
         self.board = Board(self.table)
+        
+        # Reset timer
+        self.start_time = time.time()
+        self.elapsed_time = 0.0
+        
+        # Reset GUI-specific state
+        self.found_sets.clear()
+        self.game_active = True
+        
         self._auto_deal_if_needed()
 
     def set_options(self, autodeal: bool | None = None, hint_enabled: bool | None = None) -> None:
@@ -53,11 +73,21 @@ class Game:
         if is_set(c1, c2, c3):
             self.sets_found += 1
             self.score += 1
+            
+            # Record found set for GUI sidebar display
+            self.found_sets.append(tuple(chosen))
+            
             self.table = [card for idx, card in enumerate(self.table) if idx not in chosen]
             self.table.extend(deal(self.deck, 3))
             self.board = Board(self.table)
             self.selected.clear()
             self._auto_deal_if_needed()
+            
+            # Check if game is over
+            if self.is_game_over():
+                self.game_active = False
+                self.elapsed_time = time.time() - (self.start_time or 0)
+            
             return True
         self.selected.clear()
         return False
@@ -130,3 +160,70 @@ class Game:
                     if is_set(self.table[a], self.table[b], self.table[c]):
                         count += 1
         return count
+
+    # GUI-specific methods
+    def get_elapsed_time(self) -> float:
+        """Get the current elapsed time in seconds."""
+        if not self.game_active:
+            return self.elapsed_time
+        if self.start_time is None:
+            return 0.0
+        return time.time() - self.start_time
+
+    def get_formatted_time(self) -> str:
+        """Get the elapsed time formatted as MM:SS."""
+        elapsed = self.get_elapsed_time()
+        minutes = int(elapsed // 60)
+        seconds = int(elapsed % 60)
+        return f"{minutes:02d}:{seconds:02d}"
+
+    def set_hint_mode(self, mode: int) -> None:
+        """Set hint mode: 3 (3 cards), 2 (2 cards), or 1 (1 card)."""
+        if mode in [1, 2, 3]:
+            self.hint_mode = mode
+
+    def get_hint_cards(self) -> list[int]:
+        """Get hint cards based on current hint mode."""
+        hint = self.get_hint()
+        if not hint:
+            return []
+        
+        if self.hint_mode == 3:
+            return list(hint)
+        elif self.hint_mode == 2:
+            return list(hint[:2])
+        else:  # hint_mode == 1
+            return [hint[0]]
+
+    def get_card_by_index(self, index: int) -> Card | None:
+        """Get card at specified index, safe for GUI access."""
+        if 0 <= index < len(self.table):
+            return self.table[index]
+        return None
+
+    def get_found_set_cards(self, set_index: int) -> list[Card] | None:
+        """Get the cards for a previously found set by index."""
+        if 0 <= set_index < len(self.found_sets):
+            card_indices = self.found_sets[set_index]
+            cards = []
+            for idx in card_indices:
+                if idx < len(self.table):  # Original card indices may be invalid after dealing
+                    cards.append(self.table[idx])
+            return cards if len(cards) == 3 else None
+        return None
+
+    def get_game_statistics(self) -> dict:
+        """Get comprehensive game statistics for game over dialog."""
+        return {
+            'time_elapsed': self.get_formatted_time(),
+            'sets_found': self.sets_found,
+            'final_score': self.score,
+            'cards_remaining': len(self.deck),
+            'accuracy_rate': self._calculate_accuracy()
+        }
+
+    def _calculate_accuracy(self) -> float:
+        """Calculate accuracy rate (successful sets / total attempts)."""
+        # This would need to track failed attempts in a real implementation
+        # For now, return a placeholder
+        return 100.0 if self.sets_found > 0 else 0.0

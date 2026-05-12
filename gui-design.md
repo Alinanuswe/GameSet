@@ -75,6 +75,24 @@ src/
   - Map to card tuple: `(shape, color, number, shading) = (d3, d2, d1, d0)`
 - Cache pixmaps in list for instant access
 - Handle card scaling and quality optimization
+- The following shapes are used for the cards;
+|Code| Game Shape | QPainter Tool |
+| :--- | :--- | :--- |
+|0| Oval | `drawEllipse` |
+|1| Diamond | `drawPolygon` |
+|2| RoundedRect | `drawRoundedRect` |
+- The following colors are used for the cards;
+|Code| Game Color |
+| :--- | :--- |
+|0| Red |
+|1| Green |
+|2| Purple |
+- The following shadings are used for the cards;
+|Code| Game Shading |
+| :--- | :--- |
+|0| Empty |
+|1| Striped |
+|2| Filled |
 
 #### `gui/widgets/board_widget.py`
 - QGraphicsScene containing 12 CardItem objects
