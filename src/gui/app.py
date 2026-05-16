@@ -7,6 +7,8 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QBrush, QColor, QPen
 from game import Game
 from gui.widgets.board_widget import BoardWidget
+from gui.widgets.sidebar import SidebarWidget
+from gui.dialogs.settings import SettingsDialog
 
 
 class SetGameGUI(QMainWindow):
@@ -18,9 +20,22 @@ class SetGameGUI(QMainWindow):
         # Game instance
         self.game = Game()
         
+        # Create sidebar widget
+        self.sidebar = SidebarWidget()
+        
+        # Connect sidebar signals
+        self.sidebar.settings_requested.connect(self.open_settings)
+        
         # Set up window
         self.setWindowTitle("SET Game")
-        self.setGeometry(100, 100, 800, 600)
+        self.resize(800, 600)
+        
+        # Center window on screen
+        screen = self.screen()
+        screen_geometry = screen.availableGeometry()
+        x = (screen_geometry.width() - self.width()) // 2
+        y = (screen_geometry.height() - self.height()) // 2
+        self.move(x, y)
         
         # Create central widget and main layout
         central_widget = QWidget()
@@ -30,11 +45,22 @@ class SetGameGUI(QMainWindow):
         # Create top info bar
         self.create_info_bar(main_layout)
         
+        # Create main content area with board and sidebar
+        content_layout = QHBoxLayout()
+        
         # Create board widget
         self.board_widget = BoardWidget()
         # Set the scene parent to this window for card selection handling
         self.board_widget.scene.setParent(self)
-        main_layout.addWidget(self.board_widget, 1)  # Takes most space
+        
+        # Connect card selection signals directly (backup connection)
+        if hasattr(self.board_widget, 'card_selection_signal'):
+            self.board_widget.card_selection_signal.connect(self.handle_card_selection)
+        
+        content_layout.addWidget(self.board_widget, 3)  # Board takes 3/4 of space
+        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on right
+        
+        main_layout.addLayout(content_layout)
         
         # Create bottom controls
         self.create_controls(main_layout)
@@ -68,6 +94,26 @@ class SetGameGUI(QMainWindow):
             label.setFont(font)
             label.setStyleSheet("color: white; background-color: #1a3d2a; padding: 5px; border-radius: 3px;")
         
+        # Settings button with gear unicode
+        self.settings_button = QPushButton("⚙")
+        self.settings_button.setFixedSize(30, 30)
+        self.settings_button.setFont(QFont("Arial", 14))
+        self.settings_button.setStyleSheet("""
+            QPushButton {
+                background-color: #6c757d;
+                color: white;
+                border: none;
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: #5a6268;
+            }
+            QPushButton:pressed {
+                background-color: #495057;
+            }
+        """)
+        self.settings_button.clicked.connect(self.open_settings)
+        
         # Add to layout
         info_layout.addWidget(self.score_label)
         info_layout.addWidget(self.sets_label)
@@ -75,6 +121,7 @@ class SetGameGUI(QMainWindow):
         info_layout.addWidget(self.available_sets_label)
         info_layout.addStretch()
         info_layout.addWidget(self.timer_label)
+        info_layout.addWidget(self.settings_button)
         
         layout.addLayout(info_layout)
     
@@ -112,6 +159,7 @@ class SetGameGUI(QMainWindow):
         self.game.new_game()
         self.update_board()
         self.update_game_info()
+        self.sidebar.clear_history()
         self.deal_button.setEnabled(False)  # Disabled until no sets available
     
     def update_board(self):
@@ -195,15 +243,29 @@ class SetGameGUI(QMainWindow):
         if len(self.game.selected) != 3:
             return
         
+        # Capture card indices BEFORE submit_set modifies the table
+        selected_positions = sorted(self.game.selected)
+        card_indices = []
+        for pos in selected_positions:
+            if pos < len(self.game.table):
+                card_index = self._find_card_index(self.game.table[pos])
+                card_indices.append(card_index)
+        
         # Submit the set to game logic
         if self.game.submit_set():
             # Valid set - update board
             self.update_board()
             self.update_game_info()
             
+            # Add found set to sidebar using pre-captured card indices
+            self.add_found_set_to_sidebar(card_indices)
+            
             # Check if game is over
             if self.game.is_game_over():
                 self.show_game_over()
+            else:
+                # Update board to show remaining cards in proper layout
+                self.update_board()
         else:
             # Invalid set - show visual feedback
             self.show_invalid_set_feedback()
@@ -227,7 +289,7 @@ class SetGameGUI(QMainWindow):
         for card_item in self.board_widget.card_items:
             card_item.is_in_error = False
             card_item.update_selection_highlight()
-        
+            
         # Update remaining selected cards to show yellow borders
         selected_cards = self.board_widget.get_selected_cards()
         for card_pos in selected_cards:
@@ -235,12 +297,41 @@ class SetGameGUI(QMainWindow):
             if card_item and card_item.is_selected:
                 # Ensure remaining selected cards show yellow borders
                 card_item.update_selection_highlight()
+
+    def add_found_set_to_sidebar(self, cards: List[int]):
+        """Add a found set to the sidebar."""
+        import time
+        timestamp = time.strftime("%H:%M:%S")
+        self.sidebar.add_found_set(cards, timestamp)
+
+    def open_settings(self):
+        """Open settings dialog."""
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.settings_changed.connect(self.apply_settings_to_game)
+        settings_dialog.exec()
     
+    def apply_settings_to_game(self):
+        """Apply settings from dialog to the game."""
+        # Get the settings dialog to read current values
+        # Since the dialog might be closed, read from QSettings directly
+        from PySide6.QtCore import QSettings
+        settings = QSettings("GameSet", "Settings")
+        
+        autodeal_enabled = settings.value("autodeal_enabled", False, type=bool)
+        hints_enabled = settings.value("hints_enabled", True, type=bool)
+        hint_mode = settings.value("hint_mode", "3", type=str)
+        
+        # Apply to game
+        self.game.set_options(autodeal=autodeal_enabled, hint_enabled=hints_enabled)
+        self.game.hint_mode = int(hint_mode)
+        
+        # Update UI elements based on settings
+        self.hint_button.setEnabled(hints_enabled)
+
     def show_game_over(self):
         """Show game over dialog with statistics."""
         stats = self.game.get_game_statistics()
         
-        # Simple message box for now (will be enhanced in Phase 4)
         from PySide6.QtWidgets import QMessageBox
         msg = QMessageBox()
         msg.setWindowTitle("Game Over!")

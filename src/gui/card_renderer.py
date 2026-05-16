@@ -57,7 +57,14 @@ class CardRenderer:
         if shading == 0:  # Empty
             painter.setBrush(Qt.NoBrush)
         elif shading == 1:  # Striped
-            painter.setBrush(QBrush(color_obj, Qt.Dense4Pattern))
+            # Create custom horizontal line pattern
+            pattern = QPixmap(4, 4)
+            pattern.fill(Qt.transparent)
+            pattern_painter = QPainter(pattern)
+            pattern_painter.setPen(QPen(color_obj, 1))
+            pattern_painter.drawLine(0, 1, 4, 1)
+            pattern_painter.end()
+            painter.setBrush(QBrush(pattern))
         else:  # Filled
             painter.setBrush(QBrush(color_obj))
         

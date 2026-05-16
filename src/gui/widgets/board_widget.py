@@ -46,8 +46,11 @@ class BoardWidget(QGraphicsView):
         # Calculate optimal layout
         total_cards = len(card_indices)
         if total_cards <= 12:
-            # Standard 3x4 layout
+            # Standard 4x3 layout
             self._display_cards_in_grid(card_indices, 4, 3)
+        elif total_cards == 15:
+            # 5x3 layout for 15 cards
+            self._display_cards_in_grid(card_indices, 5, 3)
         else:
             # Multi-column layout for more cards
             self._display_multi_column_layout(card_indices)
@@ -96,12 +99,17 @@ class BoardWidget(QGraphicsView):
         board_width = cols * (self.card_size.width() + self.card_spacing) + self.card_spacing
         board_height = rows * (self.card_size.height() + self.card_spacing) + self.card_spacing
         
-        # Calculate centering offset
+        # Calculate centering offset with better handling for 15 cards
         view_width = self.width() if hasattr(self, 'width') else 800
         view_height = self.height() if hasattr(self, 'height') else 600
         
-        x_offset = max(0, (view_width - board_width) // 2)
-        y_offset = max(0, (view_height - board_height) // 2)
+        # For 15 cards (5x3), ensure better centering
+        if total_cards == 15:
+            x_offset = max(0, (view_width - board_width) // 2)
+            y_offset = max(0, (view_height - board_height) // 2)
+        else:
+            x_offset = max(0, (view_width - board_width) // 2)
+            y_offset = max(0, (view_height - board_height) // 2)
         
         # Place cards
         for i, card_index in enumerate(card_indices):
@@ -206,5 +214,6 @@ class BoardWidget(QGraphicsView):
         """Handle card selection by notifying parent window."""
         # Get the parent window (main GUI) and notify it of selection
         parent = self.scene().parent()
+        
         if hasattr(parent, 'handle_card_selection'):
             parent.handle_card_selection(board_position, selected)

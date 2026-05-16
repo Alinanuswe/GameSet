@@ -78,7 +78,20 @@ class Game:
             self.found_sets.append(tuple(chosen))
             
             self.table = [card for idx, card in enumerate(self.table) if idx not in chosen]
-            self.table.extend(deal(self.deck, 3))
+            
+            # Apply SET game rules for dealing cards
+            # Only deal cards if remaining cards < 12, or if remaining >= 12 but no sets available
+            remaining_cards = len(self.table)
+            if remaining_cards < 12:
+                # Deal enough cards to get back to 12 (or as many as available)
+                cards_needed = 12 - remaining_cards
+                cards_to_deal = min(cards_needed, len(self.deck))
+                if cards_to_deal > 0:
+                    self.table.extend(deal(self.deck, cards_to_deal))
+            elif self.available_set_count() == 0 and self.deck:
+                # No sets available with 12+ cards, deal 3 more
+                self.table.extend(deal(self.deck, 3))
+            
             self.board = Board(self.table)
             self.selected.clear()
             self._auto_deal_if_needed()

@@ -1,7 +1,4 @@
 import argparse
-import sys
-from cli.runner import run as run_cli
-from game import Game
 
 
 def parse_arguments():
@@ -11,18 +8,15 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def run_gui():
-    from gui.app import run_gui as launch_gui
-    launch_gui()
-
-
 def main():
     args = parse_arguments()
     
     if args.mode == 'cli':
+        from cli.runner import run as run_cli
         run_cli()
-    else:
-        run_gui()
+    elif args.mode == 'gui':
+        from gui.app import run_gui as launch_gui
+        launch_gui()
 
 
 if __name__ == '__main__':
