@@ -60,6 +60,9 @@ class SetGameGUI(QMainWindow):
         content_layout.addWidget(self.board_widget, 3)  # Board takes 3/4 of space
         content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on right
         
+        # Hide sidebar by default
+        self.sidebar.hide()
+        
         main_layout.addLayout(content_layout)
         
         # Create bottom controls
@@ -82,7 +85,6 @@ class SetGameGUI(QMainWindow):
         self.sets_label = QLabel("Sets: 0")
         self.deck_label = QLabel("Deck: 69")
         self.available_sets_label = QLabel("Available: 0")
-        self.timer_label = QLabel("Time: 00:00")
         
         # Set font
         font = QFont()
@@ -90,9 +92,30 @@ class SetGameGUI(QMainWindow):
         font.setBold(True)
         
         for label in [self.score_label, self.sets_label, self.deck_label, 
-                     self.available_sets_label, self.timer_label]:
+                     self.available_sets_label]:
             label.setFont(font)
             label.setStyleSheet("color: white; background-color: #1a3d2a; padding: 5px; border-radius: 3px;")
+        
+        # Show Identified Sets button
+        self.show_sets_button = QPushButton("Show Identified Sets")
+        self.show_sets_button.setFixedWidth(150)
+        self.show_sets_button.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+            QPushButton:pressed {
+                background-color: #117a8b;
+            }
+        """)
+        self.show_sets_button.clicked.connect(self.toggle_sidebar)
         
         # Settings button with gear unicode
         self.settings_button = QPushButton("⚙")
@@ -120,7 +143,7 @@ class SetGameGUI(QMainWindow):
         info_layout.addWidget(self.deck_label)
         info_layout.addWidget(self.available_sets_label)
         info_layout.addStretch()
-        info_layout.addWidget(self.timer_label)
+        info_layout.addWidget(self.show_sets_button)
         info_layout.addWidget(self.settings_button)
         
         layout.addLayout(info_layout)
@@ -237,6 +260,10 @@ class SetGameGUI(QMainWindow):
         
         # Enable/disable Set button based on selection count
         self.set_button.setEnabled(len(self.game.selected) == 3)
+        
+        # Auto-confirm mode: if Set button is disabled and 3 cards selected, auto-submit
+        if not self.game.set_button_enabled and len(self.game.selected) == 3:
+            self.submit_set()
     
     def submit_set(self):
         """Submit selected cards as a set."""
@@ -304,6 +331,15 @@ class SetGameGUI(QMainWindow):
         timestamp = time.strftime("%H:%M:%S")
         self.sidebar.add_found_set(cards, timestamp)
 
+    def toggle_sidebar(self):
+        """Toggle the visibility of the sidebar."""
+        if self.sidebar.isVisible():
+            self.sidebar.hide()
+            self.show_sets_button.setText("Show Identified Sets")
+        else:
+            self.sidebar.show()
+            self.show_sets_button.setText("Hide Identified Sets")
+    
     def open_settings(self):
         """Open settings dialog."""
         settings_dialog = SettingsDialog(self)
@@ -320,13 +356,17 @@ class SetGameGUI(QMainWindow):
         autodeal_enabled = settings.value("autodeal_enabled", False, type=bool)
         hints_enabled = settings.value("hints_enabled", True, type=bool)
         hint_mode = settings.value("hint_mode", "3", type=str)
+        set_button_enabled = settings.value("set_button_enabled", False, type=bool)
         
         # Apply to game
         self.game.set_options(autodeal=autodeal_enabled, hint_enabled=hints_enabled)
         self.game.hint_mode = int(hint_mode)
+        self.game.set_button_enabled = set_button_enabled
         
         # Update UI elements based on settings
-        self.hint_button.setEnabled(hints_enabled)
+        self.hint_button.setVisible(hints_enabled)
+        self.deal_button.setVisible(not autodeal_enabled)
+        self.set_button.setVisible(set_button_enabled)
 
     def show_game_over(self):
         """Show game over dialog with statistics."""
