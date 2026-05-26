@@ -48,6 +48,12 @@ class SetGameGUI(QMainWindow):
         # Create main content area with board and sidebar
         content_layout = QHBoxLayout()
         
+        # Create sidebar widget
+        self.sidebar = SidebarWidget()
+        
+        # Connect sidebar signals
+        self.sidebar.settings_requested.connect(self.open_settings)
+        
         # Create board widget
         self.board_widget = BoardWidget()
         # Set the scene parent to this window for card selection handling
@@ -57,8 +63,8 @@ class SetGameGUI(QMainWindow):
         if hasattr(self.board_widget, 'card_selection_signal'):
             self.board_widget.card_selection_signal.connect(self.handle_card_selection)
         
+        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on left
         content_layout.addWidget(self.board_widget, 3)  # Board takes 3/4 of space
-        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on right
         
         # Hide sidebar by default
         self.sidebar.hide()
@@ -117,6 +123,27 @@ class SetGameGUI(QMainWindow):
         """)
         self.show_sets_button.clicked.connect(self.toggle_sidebar)
         
+        # New Game button
+        self.new_game_button = QPushButton("New Game")
+        self.new_game_button.setFixedWidth(100)
+        self.new_game_button.setStyleSheet("""
+            QPushButton {
+                background-color: #28a745;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 5px 10px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #218838;
+            }
+            QPushButton:pressed {
+                background-color: #1e7e34;
+            }
+        """)
+        self.new_game_button.clicked.connect(self.new_game)
+        
         # Settings button with gear unicode
         self.settings_button = QPushButton("⚙")
         self.settings_button.setFixedSize(30, 30)
@@ -143,6 +170,7 @@ class SetGameGUI(QMainWindow):
         info_layout.addWidget(self.deck_label)
         info_layout.addWidget(self.available_sets_label)
         info_layout.addStretch()
+        info_layout.addWidget(self.new_game_button)
         info_layout.addWidget(self.show_sets_button)
         info_layout.addWidget(self.settings_button)
         
@@ -160,20 +188,21 @@ class SetGameGUI(QMainWindow):
         self.hint_button = QPushButton("Hint")
         self.hint_button.clicked.connect(self.show_hint)
         
-        # New Game button
-        self.new_game_button = QPushButton("New Game")
-        self.new_game_button.clicked.connect(self.new_game)
-        
         # Set button (optional feature)
         self.set_button = QPushButton("Set")
         self.set_button.clicked.connect(self.submit_set)
+        
+        # Timer label at bottom right
+        self.timer_label = QLabel("Time: 00:00")
+        self.timer_label.setFont(QFont("Arial", 12, QFont.Bold))
+        self.timer_label.setStyleSheet("color: white; background-color: #1a3d2a; padding: 8px 15px; border-radius: 5px;")
         
         # Add to layout
         controls_layout.addWidget(self.deal_button)
         controls_layout.addWidget(self.hint_button)
         controls_layout.addWidget(self.set_button)
         controls_layout.addStretch()
-        controls_layout.addWidget(self.new_game_button)
+        controls_layout.addWidget(self.timer_label)
         
         layout.addLayout(controls_layout)
     
