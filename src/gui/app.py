@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QBrush, QColor, QPen
+from PySide6.QtGui import QFont, QBrush, QColor, QPen, QIcon
 from game import Game
 from gui.widgets.board_widget import BoardWidget
 from gui.widgets.sidebar import SidebarWidget
@@ -27,8 +27,12 @@ class SetGameGUI(QMainWindow):
         self.sidebar.settings_requested.connect(self.open_settings)
         
         # Set up window
-        self.setWindowTitle("SET Game")
+        self.setWindowTitle("Nunu SET")
         self.resize(800, 600)
+        
+        # Set window icon
+        logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logo.png')
+        self.setWindowIcon(QIcon(logo_path))
         
         # Center window on screen
         screen = self.screen()
@@ -48,12 +52,6 @@ class SetGameGUI(QMainWindow):
         # Create main content area with board and sidebar
         content_layout = QHBoxLayout()
         
-        # Create sidebar widget
-        self.sidebar = SidebarWidget()
-        
-        # Connect sidebar signals
-        self.sidebar.settings_requested.connect(self.open_settings)
-        
         # Create board widget
         self.board_widget = BoardWidget()
         # Set the scene parent to this window for card selection handling
@@ -63,8 +61,15 @@ class SetGameGUI(QMainWindow):
         if hasattr(self.board_widget, 'card_selection_signal'):
             self.board_widget.card_selection_signal.connect(self.handle_card_selection)
         
-        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on left
         content_layout.addWidget(self.board_widget, 3)  # Board takes 3/4 of space
+        
+        # Create sidebar widget
+        self.sidebar = SidebarWidget()
+        
+        # Connect sidebar signals
+        self.sidebar.settings_requested.connect(self.open_settings)
+        
+        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on right
         
         # Hide sidebar by default
         self.sidebar.hide()
@@ -180,6 +185,14 @@ class SetGameGUI(QMainWindow):
         """Create the bottom control buttons."""
         controls_layout = QHBoxLayout()
         
+        # Timer label at bottom left
+        self.timer_label = QLabel("Time: 00:00")
+        self.timer_label.setFont(QFont("Arial", 12, QFont.Bold))
+        self.timer_label.setStyleSheet("color: white; background-color: #1a3d2a; padding: 8px 15px; border-radius: 5px;")
+        
+        # Center the control buttons
+        buttons_layout = QHBoxLayout()
+        
         # Deal button
         self.deal_button = QPushButton("Deal 3 Cards")
         self.deal_button.clicked.connect(self.deal_cards)
@@ -192,17 +205,15 @@ class SetGameGUI(QMainWindow):
         self.set_button = QPushButton("Set")
         self.set_button.clicked.connect(self.submit_set)
         
-        # Timer label at bottom right
-        self.timer_label = QLabel("Time: 00:00")
-        self.timer_label.setFont(QFont("Arial", 12, QFont.Bold))
-        self.timer_label.setStyleSheet("color: white; background-color: #1a3d2a; padding: 8px 15px; border-radius: 5px;")
+        buttons_layout.addWidget(self.deal_button)
+        buttons_layout.addWidget(self.hint_button)
+        buttons_layout.addWidget(self.set_button)
         
         # Add to layout
-        controls_layout.addWidget(self.deal_button)
-        controls_layout.addWidget(self.hint_button)
-        controls_layout.addWidget(self.set_button)
-        controls_layout.addStretch()
         controls_layout.addWidget(self.timer_label)
+        controls_layout.addStretch()
+        controls_layout.addLayout(buttons_layout)
+        controls_layout.addStretch()
         
         layout.addLayout(controls_layout)
     
@@ -412,6 +423,15 @@ class SetGameGUI(QMainWindow):
         msg.setStandardButtons(QMessageBox.Ok)
         msg.buttonClicked.connect(self.new_game)
         msg.exec()
+    
+    def keyPressEvent(self, event):
+        """Handle keyboard events."""
+        if event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
+            # Enter key pressed - submit set if 3 cards selected
+            if len(self.game.selected) == 3:
+                self.submit_set()
+        else:
+            super().keyPressEvent(event)
 
 
 def run_gui():

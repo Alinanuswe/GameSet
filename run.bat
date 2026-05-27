@@ -1,2 +1,2 @@
-py src/main.py --mode=gui
+py src/main.py --mode=cli
 pause

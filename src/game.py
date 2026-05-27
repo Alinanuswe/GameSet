@@ -102,7 +102,7 @@ class Game:
                 self.elapsed_time = time.time() - (self.start_time or 0)
             
             return True
-        self.selected.clear()
+        # Don't clear selection for invalid sets - let user try again
         return False
 
     def deal_more(self) -> None:

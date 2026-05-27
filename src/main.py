@@ -1,4 +1,5 @@
 import argparse
+from gui.app import run_gui as launch_gui
 
 
 def parse_arguments():
@@ -15,7 +16,6 @@ def main():
         from cli.runner import run as run_cli
         run_cli()
     elif args.mode == 'gui':
-        from gui.app import run_gui as launch_gui
         launch_gui()
 
 
