@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QBrush, QColor, QPen
+from typing import List
 from game import Game
 from gui.widgets.board_widget import BoardWidget
 from gui.widgets.sidebar import SidebarWidget
@@ -48,12 +49,6 @@ class SetGameGUI(QMainWindow):
         # Create main content area with board and sidebar
         content_layout = QHBoxLayout()
         
-        # Create sidebar widget
-        self.sidebar = SidebarWidget()
-        
-        # Connect sidebar signals
-        self.sidebar.settings_requested.connect(self.open_settings)
-        
         # Create board widget
         self.board_widget = BoardWidget()
         # Set the scene parent to this window for card selection handling
@@ -63,8 +58,8 @@ class SetGameGUI(QMainWindow):
         if hasattr(self.board_widget, 'card_selection_signal'):
             self.board_widget.card_selection_signal.connect(self.handle_card_selection)
         
-        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on left
         content_layout.addWidget(self.board_widget, 3)  # Board takes 3/4 of space
+        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on right
         
         # Hide sidebar by default
         self.sidebar.hide()
@@ -73,6 +68,9 @@ class SetGameGUI(QMainWindow):
         
         # Create bottom controls
         self.create_controls(main_layout)
+        
+        # Load persisted settings before starting the first game
+        self.load_settings()
         
         # Start new game
         self.new_game()
@@ -376,9 +374,7 @@ class SetGameGUI(QMainWindow):
         settings_dialog.exec()
     
     def apply_settings_to_game(self):
-        """Apply settings from dialog to the game."""
-        # Get the settings dialog to read current values
-        # Since the dialog might be closed, read from QSettings directly
+        """Apply settings from QSettings to game and UI."""
         from PySide6.QtCore import QSettings
         settings = QSettings("GameSet", "Settings")
         
@@ -387,7 +383,7 @@ class SetGameGUI(QMainWindow):
         hint_mode = settings.value("hint_mode", "3", type=str)
         set_button_enabled = settings.value("set_button_enabled", False, type=bool)
         
-        # Apply to game
+        # Apply to game state
         self.game.set_options(autodeal=autodeal_enabled, hint_enabled=hints_enabled)
         self.game.hint_mode = int(hint_mode)
         self.game.set_button_enabled = set_button_enabled
@@ -396,6 +392,31 @@ class SetGameGUI(QMainWindow):
         self.hint_button.setVisible(hints_enabled)
         self.deal_button.setVisible(not autodeal_enabled)
         self.set_button.setVisible(set_button_enabled)
+        
+        # Keep the game selection mode consistent for auto-submit behavior
+        self.set_button.setEnabled(len(self.game.selected) == 3 if set_button_enabled else False)
+
+    def load_settings(self):
+        """Load persisted settings and apply them to the game/UI."""
+        from PySide6.QtCore import QSettings
+        settings = QSettings("GameSet", "Settings")
+        
+        autodeal_enabled = settings.value("autodeal_enabled", False, type=bool)
+        hints_enabled = settings.value("hints_enabled", True, type=bool)
+        hint_mode = settings.value("hint_mode", "3", type=str)
+        set_button_enabled = settings.value("set_button_enabled", False, type=bool)
+        
+        self.game.set_options(autodeal=autodeal_enabled, hint_enabled=hints_enabled)
+        self.game.hint_mode = int(hint_mode)
+        self.game.set_button_enabled = set_button_enabled
+        
+        self.hint_button.setVisible(hints_enabled)
+        self.deal_button.setVisible(not autodeal_enabled)
+        self.set_button.setVisible(set_button_enabled)
+        self.set_button.setEnabled(False)
+        
+        # Ensure board display uses current hint and autodeal settings
+        self.update_game_info()
 
     def show_game_over(self):
         """Show game over dialog with statistics."""

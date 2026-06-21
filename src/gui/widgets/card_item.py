@@ -49,10 +49,10 @@ class CardItem(QGraphicsPixmapItem):
             self.update_selection_highlight()
             
             # Emit signal or notify parent (to be implemented in Phase 3)
-            if self.scene():
+            if self.scene() and self.scene().parent() is not None:
                 self.scene().parent().handle_card_selection(self.board_position, self.is_selected)
-        
-        super().mousePressEvent(event)
+            event.accept()
+            return
     
     def set_board_position(self, position: int):
         """Set the card's position on the board."""

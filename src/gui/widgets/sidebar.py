@@ -33,7 +33,7 @@ class SidebarWidget(QWidget):
         self.create_controls_section()
         
         # Set sidebar styling
-        self.setFixedWidth(260)
+        self.setFixedWidth(270)
         self.setStyleSheet("""
             QWidget {
                 background-color: #f8f9fa;
