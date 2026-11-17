@@ -88,3 +88,7 @@ server Qt also needs a few system libraries, e.g. `apt-get install libegl1 libgl
 
 See [docs/architecture.md](docs/architecture.md) for how the code is organised.
 The original design notes are in [docs/design](docs/design).
+
+## License
+
+[MIT](LICENSE). PySide6 / Qt is used under the LGPL v3.
