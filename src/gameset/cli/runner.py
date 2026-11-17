@@ -27,7 +27,7 @@ def show_header(game: Game) -> None:
     print(f'SET Game - CLI Version ({game.mode.label})')
     print('Commands: 3 card numbers to select a SET | d deal 3 more | h hint | o options | '
           'x export csv | s scores | n new game | q quit')
-    print(f"Cards: shape {'/'.join(SHAPE_SYMBOLS)} = oval/diamond/bar, colour {'/'.join(COLOR_SYMBOLS)}, "
+    print(f"Cards: shape {'/'.join(SHAPE_SYMBOLS)} = oval/diamond/squiggle, colour {'/'.join(COLOR_SYMBOLS)}, "
           f"number 1-3, shading {'/'.join(SHADING_SYMBOLS)} = empty/striped/filled")
     print(f'Scoring: +{SET_POINTS} per SET, -{WRONG_PENALTY} per wrong guess, -{HINT_PENALTY} per hint')
     print(SEPARATOR)

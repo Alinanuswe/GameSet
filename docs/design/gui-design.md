@@ -80,9 +80,9 @@ src/
 - The following shapes are used for the cards;
 |Code| Game Shape | QPainter Tool |
 | :--- | :--- | :--- |
-|0| Oval | `drawEllipse` |
-|1| Diamond | `drawPolygon` |
-|2| RoundedRect | `drawRoundedRect` |
+|0| Oval | `drawRoundedRect` (pill) |
+|1| Diamond | `drawPath` |
+|2| Squiggle | `drawPath` (cubic curves) |
 - The following colors are used for the cards;
 |Code| Game Color |
 | :--- | :--- |

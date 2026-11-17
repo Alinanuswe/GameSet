@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Cards use the standard shapes: oval (pill), diamond and squiggle. The rounded-rectangle "bar" is replaced by the squiggle, and its terminal symbol changes from `B` to `S`.
+
 ## 0.2.0 - 2026-11-17
 
 ### Fixed

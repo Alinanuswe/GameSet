@@ -1,4 +1,4 @@
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
 from PySide6.QtGui import QBrush, QColor, QPainter, QPainterPath, QPen, QPixmap
 
 from ..card import DECK_SIZE, index_to_card
@@ -98,18 +98,19 @@ class CardRenderer:
                 self._draw_oval(painter, x, y_center - y_offset, shape_width, shape_height)
             elif shape_type == 1:  # Diamond
                 self._draw_diamond(painter, x, y_center - y_offset, shape_width, shape_height)
-            else:  # RoundedRect (shape_type == 2)
-                self._draw_rounded_rect(painter, x, y_center - y_offset, shape_width, shape_height)
+            else:  # Squiggle (shape_type == 2)
+                self._draw_squiggle(painter, x, y_center - y_offset, shape_width, shape_height)
 
-    def _draw_oval(self, painter: QPainter, x: int, y: int, width: int, height: int):
-        """Draw an oval shape."""
-        painter.drawEllipse(x, y, width, height)
+    def _draw_oval(self, painter: QPainter, x: float, y: float, width: float, height: float):
+        """Draw an oval: a pill shape with straight sides and fully rounded ends."""
+        radius = width / 2
+        painter.drawRoundedRect(QRectF(x, y, width, height), radius, radius)
 
-    def _draw_diamond(self, painter: QPainter, x: int, y: int, width: int, height: int):
+    def _draw_diamond(self, painter: QPainter, x: float, y: float, width: float, height: float):
         """Draw a diamond shape using a polygon."""
         path = QPainterPath()
-        center_x = x + width // 2
-        center_y = y + height // 2
+        center_x = x + width / 2
+        center_y = y + height / 2
 
         path.moveTo(center_x, y)  # Top point
         path.lineTo(x + width, center_y)  # Right point
@@ -119,9 +120,34 @@ class CardRenderer:
 
         painter.drawPath(path)
 
-    def _draw_rounded_rect(self, painter: QPainter, x: int, y: int, width: int, height: int):
-        """Draw a rounded rectangle shape."""
-        painter.drawRoundedRect(x, y, width, height, 5, 5)
+    # One edge of the squiggle, in a unit box where the squiggle lies horizontally:
+    # start point, then (control 1, control 2, end) for each cubic curve. The other
+    # edge is this one rotated 180 degrees, which makes the shape point-symmetric.
+    _SQUIGGLE_EDGE = (
+        (0.03, 0.92),
+        ((0.00, 0.25), (0.25, -0.05), (0.48, 0.25)),
+        ((0.64, 0.46), (0.90, -0.35), (0.97, 0.08)),
+    )
+
+    def _draw_squiggle(self, painter: QPainter, x: float, y: float, width: float, height: float):
+        """Draw a squiggle: a wavy shape with rounded, offset ends."""
+
+        def point(u: float, v: float) -> QPointF:
+            # The unit box is horizontal; stand it upright to fit the shape's box.
+            return QPointF(x + v * width, y + u * height)
+
+        def rotated(u: float, v: float) -> QPointF:
+            return point(1 - u, 1 - v)
+
+        start, *curves = self._SQUIGGLE_EDGE
+        path = QPainterPath(point(*start))
+        for c1, c2, end in curves:
+            path.cubicTo(point(*c1), point(*c2), point(*end))
+        for c1, c2, end in curves:
+            path.cubicTo(rotated(*c1), rotated(*c2), rotated(*end))
+        path.closeSubpath()
+
+        painter.drawPath(path)
 
     def get_card_pixmap(self, index: int) -> QPixmap:
         """Get the pixmap for a card by its index (0-80)."""

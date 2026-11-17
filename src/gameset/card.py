@@ -5,13 +5,13 @@ FEATURE_NAMES = ['Shape', 'Color', 'Number', 'Shading']
 
 # Human-readable names for each feature value, indexed by feature then value.
 FEATURE_VALUES = [
-    ['oval', 'diamond', 'bar'],
+    ['oval', 'diamond', 'squiggle'],
     ['red', 'green', 'purple'],
     ['one', 'two', 'three'],
     ['empty', 'striped', 'filled'],
 ]
 
-SHAPE_SYMBOLS = ['O', 'D', 'B']
+SHAPE_SYMBOLS = ['O', 'D', 'S']
 COLOR_SYMBOLS = ['R', 'G', 'P']
 SHADING_SYMBOLS = ['E', 'S', 'F']
 
