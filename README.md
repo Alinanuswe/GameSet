@@ -91,4 +91,4 @@ The original design notes are in [docs/design](docs/design).
 
 ## License
 
-[MIT](LICENSE). PySide6 / Qt is used under the LGPL v3.
+No license has been chosen yet; all rights reserved. PySide6 / Qt is used under the LGPL v3.
