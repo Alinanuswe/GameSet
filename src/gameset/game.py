@@ -161,8 +161,12 @@ class Game:
         self._check_finished()
         return SubmitResult(True, 'SET!')
 
+    def can_deal(self) -> bool:
+        """Dealing is only allowed when the deck has cards and no SET is on the table."""
+        return self.game_active and bool(self.deck) and find_set(self.table) is None
+
     def deal_more(self) -> bool:
-        if not self.game_active or not self.deck:
+        if not self.can_deal():
             return False
         self.table.extend(deal(self.deck, 3))
         self.selected.clear()

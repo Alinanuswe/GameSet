@@ -25,7 +25,6 @@ from .theme import get_theme, stylesheet
 from .widgets.board_widget import CARD_KEYS, BoardWidget
 from .widgets.sidebar import SidebarWidget
 
-MAX_TABLE_CARDS = 21  # any 20 cards contain a SET, so dealing past 21 is never needed
 SUCCESS_FLASH_MS = 350
 ERROR_FLASH_MS = 800
 HINT_SHOW_MS = 3000
@@ -237,7 +236,12 @@ class SetGameGUI(QMainWindow):
             if len(table) >= len(table_before) else set()
 
     def deal_cards(self):
-        if self._busy or not self.deal_button.isEnabled():
+        if self._busy or not self.game.game_active:
+            return
+        if not self.game.can_deal():
+            if self.game.deck:
+                self.statusBar().showMessage(
+                    'There is a SET on the table. Find it before dealing more cards.', MESSAGE_MS)
             return
         before = list(self.game.table)
         if self.game.deal_more():
@@ -316,8 +320,7 @@ class SetGameGUI(QMainWindow):
         self.sets_label.setText(f'SETs: {game.sets_found}')
         self.deck_label.setText(f'Deck: {len(game.deck)}')
         self.available_sets_label.setText(f'On table: {self._available_sets}')
-        self.deal_button.setEnabled(game.game_active and bool(game.deck)
-                                    and len(game.table) < MAX_TABLE_CARDS)
+        self.deal_button.setEnabled(game.game_active and bool(game.deck) and self._available_sets == 0)
         self.hint_button.setEnabled(game.game_active)
         self.set_button.setEnabled(game.game_active and len(game.selected) == 3)
         self._update_timer()

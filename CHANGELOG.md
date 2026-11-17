@@ -4,6 +4,10 @@
 
 ### Changed
 - Cards use the standard shapes: oval (pill), diamond and squiggle. The rounded-rectangle "bar" is replaced by the squiggle, and its terminal symbol changes from `B` to `S`.
+- Dealing 3 more cards is only allowed when there is no SET on the table (GUI and terminal).
+
+### Fixed
+- GUI tests saved their settings to the real Windows registry, turning hints off in the game and making the hint test fail.
 
 ## 0.2.0 - 2026-11-17
 

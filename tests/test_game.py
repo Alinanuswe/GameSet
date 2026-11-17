@@ -192,3 +192,13 @@ def test_export_csv(tmp_path):
     lines = path.read_text().splitlines()
     assert lines[0].startswith('ID,Shape')
     assert len([line for line in lines[1:13] if line]) == 12
+
+
+def test_cannot_deal_while_a_set_is_on_the_table():
+    game = make_game()
+    while find_set(game.table) is None:
+        assert game.deal_more()
+    size = len(game.table)
+    assert not game.can_deal()
+    assert not game.deal_more()
+    assert len(game.table) == size

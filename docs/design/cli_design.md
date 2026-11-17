@@ -74,7 +74,7 @@ This represents: Diamond, Red, 2, Filled
 |-------|--------|
 | `1 2 3` | Select exactly 3 cards by number, space-separated |
 | Enter | Submit selected SET |
-| `d` | Deal 3 more cards (if deck not empty) |
+| `d` | Deal 3 more cards (only when the deck has cards and no SET is on the table) |
 | `h` | Show hint (if hints enabled) |
 | `o` | Open options menu to toggle auto-deal and hints |
 | `n` | New game |

@@ -27,8 +27,9 @@ def show_header(game: Game) -> None:
     print(f'SET Game - CLI Version ({game.mode.label})')
     print('Commands: 3 card numbers to select a SET | d deal 3 more | h hint | o options | '
           'x export csv | s scores | n new game | q quit')
-    print(f"Cards: shape {'/'.join(SHAPE_SYMBOLS)} = oval/diamond/squiggle, colour {'/'.join(COLOR_SYMBOLS)}, "
-          f"number 1-3, shading {'/'.join(SHADING_SYMBOLS)} = empty/striped/filled")
+    print(f"Cards: shape {'/'.join(SHAPE_SYMBOLS)} = oval/diamond/squiggle, "
+          f"colour {'/'.join(COLOR_SYMBOLS)}, number 1-3, "
+          f"shading {'/'.join(SHADING_SYMBOLS)} = empty/striped/filled")
     print(f'Scoring: +{SET_POINTS} per SET, -{WRONG_PENALTY} per wrong guess, -{HINT_PENALTY} per hint')
     print(SEPARATOR)
 
@@ -138,7 +139,12 @@ def run(mode: GameMode = GameMode.CLASSIC, seed: int | None = None) -> None:
             print('The game is over. Press n for a new game.')
             continue
         if command == 'd':
-            print('Dealt 3 more cards.' if game.deal_more() else 'Deck is empty. Cannot deal more cards.')
+            if game.deal_more():
+                print('Dealt 3 more cards.')
+            elif not game.deck:
+                print('Deck is empty. Cannot deal more cards.')
+            else:
+                print('There is a SET on the table. Find it before dealing more cards.')
             continue
         if command == 'h':
             if not game.hint_enabled:

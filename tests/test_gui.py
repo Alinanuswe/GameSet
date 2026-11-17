@@ -13,6 +13,7 @@ from PySide6.QtTest import QTest
 from gameset.game import GameMode
 from gameset.gui import app as app_module
 from gameset.gui.dialogs import game_over
+from gameset.gui.dialogs import settings as settings_module
 from gameset.gui.dialogs.settings import GuiSettings
 from gameset.gui.widgets.board_widget import CARD_KEYS
 from gameset.set_logic import find_set, is_set
@@ -26,8 +27,10 @@ def qapp():
 @pytest.fixture
 def window(qapp, tmp_path, monkeypatch):
     monkeypatch.setenv('GAMESET_SCORES', str(tmp_path / 'scores.json'))
-    QSettings.setPath(QSettings.IniFormat, QSettings.UserScope, str(tmp_path))
-    QSettings.setPath(QSettings.NativeFormat, QSettings.UserScope, str(tmp_path))
+    # On Windows QSettings defaults to the registry, which setPath cannot redirect,
+    # so point the settings store at a file in tmp_path instead.
+    ini = str(tmp_path / 'settings.ini')
+    monkeypatch.setattr(settings_module, 'open_settings_store', lambda: QSettings(ini, QSettings.IniFormat))
     shown = []
     monkeypatch.setattr(game_over.GameOverDialog, 'exec', lambda self: shown.append(self) or game_over.CLOSE)
     w = app_module.SetGameGUI(GameMode.CLASSIC, seed=5)
@@ -152,7 +155,17 @@ def test_board_scales_with_window(window):
 
 def test_redraw_during_fade_in_stops_animations(window):
     """Regression: redrawing while new cards faded in touched deleted card items."""
-    window.deal_cards()
+    window.new_game()
     assert window.board_widget._animations
     window.refresh_board()
     assert not window.board_widget._animations
+
+
+def test_deal_button_only_enabled_without_a_set(window):
+    while find_set(window.game.table) is None:
+        assert window.deal_button.isEnabled()
+        window.deal_cards()
+    size = len(window.game.table)
+    assert not window.deal_button.isEnabled()
+    window.deal_cards()
+    assert len(window.game.table) == size
