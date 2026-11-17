@@ -92,6 +92,7 @@ class SetGameGUI(QMainWindow):
         self.sets_label = QLabel()
         self.deck_label = QLabel()
         self.available_sets_label = QLabel()
+        self.available_sets_label.setToolTip('Number of SETs among the cards on the table')
         for label in (self.score_label, self.sets_label, self.deck_label, self.available_sets_label):
             label.setObjectName('chip')
             bar.addWidget(label)
@@ -151,6 +152,7 @@ class SetGameGUI(QMainWindow):
         self.game.set_hint_mode(settings.hint_mode)
         self.game.set_button_enabled = settings.set_button_enabled
         self.sounds.enabled = settings.sound_enabled
+        self.available_sets_label.setVisible(settings.show_available)
 
         theme = get_theme(settings.theme)
         QApplication.instance().setStyleSheet(stylesheet(theme))
@@ -161,7 +163,6 @@ class SetGameGUI(QMainWindow):
 
         self.hint_button.setVisible(settings.hints_enabled)
         self.set_button.setVisible(settings.set_button_enabled)
-        self.available_sets_label.setVisible(settings.show_available)
         if self.game.table:
             self.refresh_board()  # auto-deal may have added cards
 
@@ -319,7 +320,7 @@ class SetGameGUI(QMainWindow):
         self.score_label.setText(f'Score: {game.score}')
         self.sets_label.setText(f'SETs: {game.sets_found}')
         self.deck_label.setText(f'Deck: {len(game.deck)}')
-        self.available_sets_label.setText(f'On table: {self._available_sets}')
+        self.available_sets_label.setText(f'SETs on table: {self._available_sets}')
         self.deal_button.setEnabled(game.game_active and bool(game.deck) and self._available_sets == 0)
         self.hint_button.setEnabled(game.game_active)
         self.set_button.setEnabled(game.game_active and len(game.selected) == 3)

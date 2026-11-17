@@ -169,3 +169,12 @@ def test_deal_button_only_enabled_without_a_set(window):
     assert not window.deal_button.isEnabled()
     window.deal_cards()
     assert len(window.game.table) == size
+
+
+def test_available_set_count_shown_by_default_and_can_be_hidden(window):
+    window.apply_settings(GuiSettings())
+    assert window.available_sets_label.isVisibleTo(window)
+    expected = window.game.available_set_count()
+    assert window.available_sets_label.text() == f'SETs on table: {expected}'
+    window.apply_settings(GuiSettings(show_available=False))
+    assert not window.available_sets_label.isVisibleTo(window)

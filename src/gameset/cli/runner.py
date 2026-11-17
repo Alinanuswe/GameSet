@@ -37,7 +37,8 @@ def show_header(game: Game) -> None:
 def show_status(game: Game) -> None:
     print(game.get_board_display())
     clock = 'Time left' if game.mode is GameMode.TIMED else 'Time'
-    print(f'Score: {game.score} | SETs found: {game.sets_found} | Cards in deck: {len(game.deck)} | '
+    print(f'Score: {game.score} | SETs found: {game.sets_found} | '
+          f'SETs on table: {game.available_set_count()} | Cards in deck: {len(game.deck)} | '
           f'{clock}: {game.get_formatted_time()}')
     print(f"Auto-deal: {'ON' if game.autodeal else 'OFF'} | Hints: {'ON' if game.hint_enabled else 'OFF'}")
     if game.game_active and game.deck and game.get_hint() is None and not game.autodeal:
