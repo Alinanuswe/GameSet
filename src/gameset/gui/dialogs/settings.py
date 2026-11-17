@@ -28,7 +28,7 @@ class GuiSettings:
     hint_mode: int = 3
     autodeal_enabled: bool = False
     set_button_enabled: bool = False  # False: a correct SET is confirmed as soon as 3 cards are picked
-    show_available: bool = False
+    show_available: bool = True
     sound_enabled: bool = True
     theme: str = 'light'
 
