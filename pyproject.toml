@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gameset"
+version = "0.2.0"
+description = "The SET card game, with a command-line and a Qt desktop version"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["PySide6>=6.5"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff>=0.5", "mypy>=1.8", "pre-commit>=3"]
+
+[project.scripts]
+gameset = "gameset.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# The GUI tests must set QT_QPA_PLATFORM before importing Qt.
+"tests/test_gui.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.10"
+files = ["src/gameset"]
+ignore_missing_imports = true
+check_untyped_defs = true
