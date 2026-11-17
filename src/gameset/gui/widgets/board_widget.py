@@ -1,14 +1,16 @@
 import math
+from collections.abc import Set
 
-from PySide6.QtCore import Qt, QRectF, Signal, QVariantAnimation, QEasingCurve
-from PySide6.QtGui import QPainter, QColor, QBrush
-from PySide6.QtWidgets import QGraphicsView, QGraphicsScene, QFrame
+from PySide6.QtCore import QEasingCurve, QRectF, Qt, QVariantAnimation, Signal
+from PySide6.QtGui import QBrush, QColor, QPainter
+from PySide6.QtWidgets import QFrame, QGraphicsScene, QGraphicsView
 
 from ...card import Card, card_to_index
 from ..card_renderer import shared_renderer
 from .card_item import CardItem
 
-# Keys for picking cards, numbered down each column: 1-9, 0, then the QWERTY row, then A. Covers the 21-card maximum.
+# Keys for picking cards, numbered down each column: 1-9, 0, then the QWERTY row, then A.
+# Covers the 21-card maximum.
 CARD_KEYS = list('1234567890QWERTYUIOPA')
 
 ROWS = 3
@@ -44,7 +46,7 @@ class BoardWidget(QGraphicsView):
         for item in self.card_items:
             item.set_colors(self._colors)
 
-    def display_cards(self, cards: list[Card], new_positions: set[int] = frozenset()) -> None:
+    def display_cards(self, cards: list[Card], new_positions: Set[int] = frozenset()) -> None:
         """Lay out cards in 3 rows; cards at new_positions fade in."""
         for animation in self._animations:
             animation.stop()  # its card is about to be deleted
@@ -83,8 +85,12 @@ class BoardWidget(QGraphicsView):
         animation.setDuration(350)
         animation.setEasingCurve(QEasingCurve.OutCubic)
         animation.valueChanged.connect(item.setOpacity)
-        animation.finished.connect(
-            lambda: animation in self._animations and self._animations.remove(animation))
+
+        def forget():
+            if animation in self._animations:
+                self._animations.remove(animation)
+
+        animation.finished.connect(forget)
         self._animations.append(animation)
         animation.start()
 

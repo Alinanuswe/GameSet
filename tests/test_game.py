@@ -2,9 +2,16 @@ import pytest
 
 from gameset.card import Card
 from gameset.deck import create_deck
-from gameset.game import (Game, GameMode, SET_POINTS, HINT_PENALTY, WRONG_PENALTY,
-                          TIMED_LIMIT_SECONDS, daily_seed)
-from gameset.set_logic import is_set, find_set, find_all_sets
+from gameset.game import (
+    HINT_PENALTY,
+    SET_POINTS,
+    TIMED_LIMIT_SECONDS,
+    WRONG_PENALTY,
+    Game,
+    GameMode,
+    daily_seed,
+)
+from gameset.set_logic import find_all_sets, find_set, is_set
 
 
 class FakeClock:
@@ -184,4 +191,4 @@ def test_export_csv(tmp_path):
     game.export_table_csv(str(path))
     lines = path.read_text().splitlines()
     assert lines[0].startswith('ID,Shape')
-    assert len([l for l in lines[1:13] if l]) == 12
+    assert len([line for line in lines[1:13] if line]) == 12

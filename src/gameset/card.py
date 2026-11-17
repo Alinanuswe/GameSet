@@ -1,6 +1,5 @@
-from typing import Tuple
 
-Card = Tuple[int, int, int, int]
+Card = tuple[int, int, int, int]
 
 FEATURE_NAMES = ['Shape', 'Color', 'Number', 'Shading']
 

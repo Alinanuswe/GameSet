@@ -1,19 +1,28 @@
 import sys
 import time
+from collections.abc import Set
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                               QPushButton, QComboBox)
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
-from ..game import Game, GameMode, SET_POINTS, HINT_PENALTY, WRONG_PENALTY
+from ..game import HINT_PENALTY, SET_POINTS, WRONG_PENALTY, Game, GameMode
 from ..scores import Leaderboard
 from .dialogs import game_over
 from .dialogs.leaderboard import LeaderboardDialog
 from .dialogs.settings import GuiSettings, SettingsDialog
 from .sounds import SoundPlayer
 from .theme import get_theme, stylesheet
-from .widgets.board_widget import BoardWidget, CARD_KEYS
+from .widgets.board_widget import CARD_KEYS, BoardWidget
 from .widgets.sidebar import SidebarWidget
 
 MAX_TABLE_CARDS = 21  # any 20 cards contain a SET, so dealing past 21 is never needed
@@ -291,7 +300,7 @@ class SetGameGUI(QMainWindow):
 
     # ---------------------------------------------------------------- display
 
-    def refresh_board(self, new_positions: set[int] = frozenset()):
+    def refresh_board(self, new_positions: Set[int] = frozenset()):
         """Redraw all cards after the table changed."""
         self._available_sets = self.game.available_set_count()
         self.board_widget.display_cards(self.game.table, new_positions)

@@ -3,7 +3,7 @@
 import datetime
 import json
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 MAX_ENTRIES_PER_MODE = 10

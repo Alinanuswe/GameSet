@@ -2,14 +2,14 @@ import csv
 import datetime
 import random
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable
 
 from .board import Board
-from .card import Card, SHAPE_SYMBOLS, COLOR_SYMBOLS, SHADING_SYMBOLS
-from .deck import create_deck, shuffle, deal
-from .set_logic import is_set, find_set, find_all_sets, explain_not_set
+from .card import COLOR_SYMBOLS, SHADING_SYMBOLS, SHAPE_SYMBOLS, Card
+from .deck import create_deck, deal, shuffle
+from .set_logic import explain_not_set, find_all_sets, find_set, is_set
 
 TABLE_SIZE = 12
 
@@ -149,7 +149,7 @@ class Game:
         if len(self.table) <= TABLE_SIZE and self.deck:
             # Refill in place so the remaining cards keep their positions.
             new_cards = deal(self.deck, 3)
-            for index, card in zip(chosen, new_cards):
+            for index, card in zip(chosen, new_cards, strict=False):
                 self.table[index] = card
             for index in reversed(chosen[len(new_cards):]):
                 del self.table[index]

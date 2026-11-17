@@ -1,7 +1,7 @@
-from typing import Callable
+from collections.abc import Callable
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap, QColor, QPen, QFont, QBrush
+from PySide6.QtGui import QBrush, QColor, QFont, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsSimpleTextItem
 
 

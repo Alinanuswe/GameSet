@@ -1,5 +1,5 @@
-from ..card import SHAPE_SYMBOLS, COLOR_SYMBOLS, SHADING_SYMBOLS
-from ..game import Game, GameMode, SET_POINTS, HINT_PENALTY, WRONG_PENALTY
+from ..card import COLOR_SYMBOLS, SHADING_SYMBOLS, SHAPE_SYMBOLS
+from ..game import HINT_PENALTY, SET_POINTS, WRONG_PENALTY, Game, GameMode
 from ..scores import Leaderboard
 
 SEPARATOR = '-' * 60
@@ -130,8 +130,8 @@ def run(mode: GameMode = GameMode.CLASSIC, seed: int | None = None) -> None:
             try:
                 game.export_table_csv(filename)
                 print(f'Exported current board to {filename}.')
-            except OSError as error:
-                print(f'Could not write {filename}: {error}')
+            except OSError as exc:
+                print(f'Could not write {filename}: {exc}')
             continue
 
         if game.check_time() or not game.game_active:

@@ -23,7 +23,7 @@ class LicenseManager:
             'Qt': 'LGPL v3 - https://www.gnu.org/licenses/lgpl-3.0.html',
             'ThirdParty': 'See licenses/third_party_licenses.txt'
         }
-    
+
     @staticmethod
     def show_about_dialog():
         # Display license notices in About dialog
@@ -47,7 +47,7 @@ class UpdateManager:
         # Check current version vs latest available
         # Notify user if update available
         pass
-    
+
     def update_pyside6_safely(self):
         # Backup current version
         # Update to latest compatible version

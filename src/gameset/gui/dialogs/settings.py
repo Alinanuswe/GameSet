@@ -3,8 +3,16 @@
 from dataclasses import dataclass, fields
 
 from PySide6.QtCore import QSettings, Signal
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox,
-                               QComboBox, QGroupBox)
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+)
 
 HINT_MODES = {3: '3 cards', 2: '2 cards', 1: '1 card'}
 THEMES = {'light': 'Light', 'dark': 'Dark'}

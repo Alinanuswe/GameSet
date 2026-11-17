@@ -1,8 +1,16 @@
 import datetime
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QTabWidget, QTableWidget, QTableWidgetItem,
-                               QHeaderView, QDialogButtonBox, QAbstractItemView)
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QDialog,
+    QDialogButtonBox,
+    QHeaderView,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+)
 
 from ...game import GameMode
 from ...scores import Leaderboard
@@ -14,7 +22,8 @@ def _format_seconds(seconds: float) -> str:
 
 
 class LeaderboardDialog(QDialog):
-    def __init__(self, leaderboard: Leaderboard, current_mode: GameMode, highlight_rank: int | None = None, parent=None):
+    def __init__(self, leaderboard: Leaderboard, current_mode: GameMode,
+                 highlight_rank: int | None = None, parent=None):
         super().__init__(parent)
         self.setWindowTitle('Best Scores')
         self.resize(460, 380)

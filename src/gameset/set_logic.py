@@ -1,6 +1,6 @@
 from itertools import combinations
 
-from .card import Card, FEATURE_NAMES
+from .card import FEATURE_NAMES, Card
 
 
 def is_set(c1: Card, c2: Card, c3: Card) -> bool:

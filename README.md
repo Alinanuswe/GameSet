@@ -73,8 +73,15 @@ how many SETs are on the table, light/dark theme and sound effects. Settings are
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest
+pre-commit install          # run the linter automatically on each commit
+
+python -m pytest            # tests
+ruff check src tests        # lint
+mypy                        # type check
 ```
+
+GitHub Actions runs the same checks on every push to `main` and on pull requests, on
+Windows, macOS and Linux. Record user-visible changes in [CHANGELOG.md](CHANGELOG.md).
 
 The GUI tests run headless (`QT_QPA_PLATFORM=offscreen` is set automatically). On a bare Linux
 server Qt also needs a few system libraries, e.g. `apt-get install libegl1 libgl1 libxkbcommon0`.

@@ -11,11 +11,11 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtTest import QTest
 
 from gameset.game import GameMode
-from gameset.set_logic import find_set, is_set
 from gameset.gui import app as app_module
 from gameset.gui.dialogs import game_over
 from gameset.gui.dialogs.settings import GuiSettings
 from gameset.gui.widgets.board_widget import CARD_KEYS
+from gameset.set_logic import find_set, is_set
 
 
 @pytest.fixture(scope='session')

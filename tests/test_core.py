@@ -2,9 +2,9 @@ from itertools import combinations
 
 import pytest
 
-from gameset.card import card_to_index, index_to_card, format_card, describe_card
+from gameset.card import card_to_index, describe_card, format_card, index_to_card
 from gameset.deck import create_deck, deal
-from gameset.set_logic import is_set, find_set, find_all_sets, broken_features, explain_not_set
+from gameset.set_logic import broken_features, explain_not_set, find_all_sets, find_set, is_set
 
 
 def test_deck_has_81_unique_cards():

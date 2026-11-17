@@ -1,7 +1,7 @@
 """Sidebar listing the SETs found this game, most recent first."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from ...card import Card, card_to_index, describe_card
 from ..card_renderer import shared_renderer
