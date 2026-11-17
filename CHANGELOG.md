@@ -7,6 +7,7 @@
 - Dealing 3 more cards is only allowed when there is no SET on the table (GUI and terminal).
 
 ### Fixed
+- On Windows, sound effects only played the first time (for example, no SET sound after the first SET). Windows now plays them with `winsound`.
 - GUI tests saved their settings to the real Windows registry, turning hints off in the game and making the hint test fail.
 
 ## 0.2.0 - 2026-11-17

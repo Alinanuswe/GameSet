@@ -2,6 +2,7 @@
 
 import math
 import struct
+import sys
 import tempfile
 import wave
 from pathlib import Path
@@ -12,6 +13,13 @@ try:
     from PySide6.QtMultimedia import QSoundEffect
 except ImportError:  # Qt Multimedia missing or its system libraries not installed
     QSoundEffect = None
+
+# On Windows, QSoundEffect (FFmpeg backend) can report a sound as playing while staying
+# silent after its first play. winsound uses the Windows player directly and is reliable.
+if sys.platform == 'win32':
+    import winsound
+else:
+    winsound = None
 
 SAMPLE_RATE = 44100
 
@@ -43,8 +51,9 @@ def _write_wav(path: Path, notes: list[tuple[int, float]]) -> None:
 class SoundPlayer:
     def __init__(self) -> None:
         self.enabled = True
-        self._effects = {}
-        if QSoundEffect is None:
+        self._files: dict[str, Path] = {}
+        self._effects: dict[str, QSoundEffect] = {}
+        if winsound is None and QSoundEffect is None:
             return
         folder = Path(tempfile.gettempdir()) / 'gameset-sounds'
         try:
@@ -53,13 +62,26 @@ class SoundPlayer:
                 path = folder / f'{name}.wav'
                 if not path.exists():
                     _write_wav(path, notes)
+                self._files[name] = path
+        except OSError:
+            self._files.clear()
+            return
+        if winsound is None:
+            for name, path in self._files.items():
                 effect = QSoundEffect()
                 effect.setSource(QUrl.fromLocalFile(str(path)))
                 effect.setVolume(0.5)
                 self._effects[name] = effect
-        except OSError:
-            self._effects.clear()
 
     def play(self, name: str) -> None:
-        if self.enabled and name in self._effects:
-            self._effects[name].play()
+        if not self.enabled or name not in self._files:
+            return
+        if winsound is not None:
+            try:
+                winsound.PlaySound(str(self._files[name]), winsound.SND_FILENAME | winsound.SND_ASYNC)
+            except RuntimeError:
+                pass  # no audio device
+        elif name in self._effects:
+            effect = self._effects[name]
+            effect.stop()  # restart cleanly if the previous play has not been reset
+            effect.play()
