@@ -1,449 +1,335 @@
 import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import time
 
-from PySide6.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QBrush, QColor, QPen
-from typing import List
-from game import Game
-from gui.widgets.board_widget import BoardWidget
-from gui.widgets.sidebar import SidebarWidget
-from gui.dialogs.settings import SettingsDialog
+from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                               QPushButton, QComboBox)
+
+from ..game import Game, GameMode, SET_POINTS, HINT_PENALTY, WRONG_PENALTY
+from ..scores import Leaderboard
+from .dialogs import game_over
+from .dialogs.leaderboard import LeaderboardDialog
+from .dialogs.settings import GuiSettings, SettingsDialog
+from .sounds import SoundPlayer
+from .theme import get_theme, stylesheet
+from .widgets.board_widget import BoardWidget, CARD_KEYS
+from .widgets.sidebar import SidebarWidget
+
+MAX_TABLE_CARDS = 21  # any 20 cards contain a SET, so dealing past 21 is never needed
+SUCCESS_FLASH_MS = 350
+ERROR_FLASH_MS = 800
+HINT_SHOW_MS = 3000
+MESSAGE_MS = 4000
 
 
 class SetGameGUI(QMainWindow):
     """Main application window for the SET game GUI."""
-    
-    def __init__(self):
-        super().__init__()
-        
-        # Game instance
-        self.game = Game()
-        
-        # Create sidebar widget
-        self.sidebar = SidebarWidget()
-        
-        # Connect sidebar signals
-        self.sidebar.settings_requested.connect(self.open_settings)
-        
-        # Set up window
-        self.setWindowTitle("SET Game")
-        self.resize(800, 600)
-        
-        # Center window on screen
-        screen = self.screen()
-        screen_geometry = screen.availableGeometry()
-        x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
-        
-        # Create central widget and main layout
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        
-        # Create top info bar
-        self.create_info_bar(main_layout)
-        
-        # Create main content area with board and sidebar
-        content_layout = QHBoxLayout()
-        
-        # Create board widget
-        self.board_widget = BoardWidget()
-        # Set the scene parent to this window for card selection handling
-        self.board_widget.scene.setParent(self)
-        
-        # Connect card selection signals directly (backup connection)
-        if hasattr(self.board_widget, 'card_selection_signal'):
-            self.board_widget.card_selection_signal.connect(self.handle_card_selection)
-        
-        content_layout.addWidget(self.board_widget, 3)  # Board takes 3/4 of space
-        content_layout.addWidget(self.sidebar, 1)  # Sidebar takes 1/4 of space on right
-        
-        # Hide sidebar by default
-        self.sidebar.hide()
-        
-        main_layout.addLayout(content_layout)
-        
-        # Create bottom controls
-        self.create_controls(main_layout)
-        
-        # Load persisted settings before starting the first game
-        self.load_settings()
-        
-        # Start new game
-        self.new_game()
-        
-        # Set up timer for updating game info
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.update_game_info)
-        self.timer.start(1000)  # Update every second
-    
-    def create_info_bar(self, layout):
-        """Create the top information bar."""
-        info_layout = QHBoxLayout()
-        
-        # Game info labels
-        self.score_label = QLabel("Score: 0")
-        self.sets_label = QLabel("Sets: 0")
-        self.deck_label = QLabel("Deck: 69")
-        self.available_sets_label = QLabel("Available: 0")
-        
-        # Set font
-        font = QFont()
-        font.setPointSize(10)
-        font.setBold(True)
-        
-        for label in [self.score_label, self.sets_label, self.deck_label, 
-                     self.available_sets_label]:
-            label.setFont(font)
-            label.setStyleSheet("color: white; background-color: #1a3d2a; padding: 5px; border-radius: 3px;")
-        
-        # Show Identified Sets button
-        self.show_sets_button = QPushButton("Show Identified Sets")
-        self.show_sets_button.setFixedWidth(150)
-        self.show_sets_button.setStyleSheet("""
-            QPushButton {
-                background-color: #17a2b8;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 5px 10px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #138496;
-            }
-            QPushButton:pressed {
-                background-color: #117a8b;
-            }
-        """)
-        self.show_sets_button.clicked.connect(self.toggle_sidebar)
-        
-        # New Game button
-        self.new_game_button = QPushButton("New Game")
-        self.new_game_button.setFixedWidth(100)
-        self.new_game_button.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 5px 10px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-            QPushButton:pressed {
-                background-color: #1e7e34;
-            }
-        """)
-        self.new_game_button.clicked.connect(self.new_game)
-        
-        # Settings button with gear unicode
-        self.settings_button = QPushButton("⚙")
-        self.settings_button.setFixedSize(30, 30)
-        self.settings_button.setFont(QFont("Arial", 14))
-        self.settings_button.setStyleSheet("""
-            QPushButton {
-                background-color: #6c757d;
-                color: white;
-                border: none;
-                border-radius: 15px;
-            }
-            QPushButton:hover {
-                background-color: #5a6268;
-            }
-            QPushButton:pressed {
-                background-color: #495057;
-            }
-        """)
-        self.settings_button.clicked.connect(self.open_settings)
-        
-        # Add to layout
-        info_layout.addWidget(self.score_label)
-        info_layout.addWidget(self.sets_label)
-        info_layout.addWidget(self.deck_label)
-        info_layout.addWidget(self.available_sets_label)
-        info_layout.addStretch()
-        info_layout.addWidget(self.new_game_button)
-        info_layout.addWidget(self.show_sets_button)
-        info_layout.addWidget(self.settings_button)
-        
-        layout.addLayout(info_layout)
-    
-    def create_controls(self, layout):
-        """Create the bottom control buttons."""
-        controls_layout = QHBoxLayout()
-        
-        # Deal button
-        self.deal_button = QPushButton("Deal 3 Cards")
-        self.deal_button.clicked.connect(self.deal_cards)
-        
-        # Hint button
-        self.hint_button = QPushButton("Hint")
-        self.hint_button.clicked.connect(self.show_hint)
-        
-        # Set button (optional feature)
-        self.set_button = QPushButton("Set")
-        self.set_button.clicked.connect(self.submit_set)
-        
-        # Timer label at bottom right
-        self.timer_label = QLabel("Time: 00:00")
-        self.timer_label.setFont(QFont("Arial", 12, QFont.Bold))
-        self.timer_label.setStyleSheet("color: white; background-color: #1a3d2a; padding: 8px 15px; border-radius: 5px;")
-        
-        # Add to layout
-        controls_layout.addWidget(self.deal_button)
-        controls_layout.addWidget(self.hint_button)
-        controls_layout.addWidget(self.set_button)
-        controls_layout.addStretch()
-        controls_layout.addWidget(self.timer_label)
-        
-        layout.addLayout(controls_layout)
-    
-    def new_game(self):
-        """Start a new game."""
-        self.game.new_game()
-        self.update_board()
-        self.update_game_info()
-        self.sidebar.clear_history()
-        self.deal_button.setEnabled(False)  # Disabled until no sets available
-    
-    def update_board(self):
-        """Update the board display with current game cards."""
-        # Convert game cards to card indices
-        card_indices = []
-        for card in self.game.table:
-            # Find card index (this is simplified - would need proper mapping in full implementation)
-            # For now, use a simple approach
-            card_index = self._find_card_index(card)
-            if card_index is not None:
-                card_indices.append(card_index)
-        
-        self.board_widget.display_cards(card_indices)
-    
-    def _find_card_index(self, card):
-        """Find the index of a card (simplified implementation)."""
-        # This is a placeholder - in full implementation, we'd need proper card-to-index mapping
-        # For now, return a simple calculation
-        shape, color, number, shading = card
-        return shape * 27 + color * 9 + number * 3 + shading
-    
-    def update_game_info(self):
-        """Update the game information display."""
-        self.score_label.setText(f"Score: {self.game.score}")
-        self.sets_label.setText(f"Sets: {self.game.sets_found}")
-        self.deck_label.setText(f"Deck: {len(self.game.deck)}")
-        
-        available_sets = self.game.available_set_count()
-        self.available_sets_label.setText(f"Available: {available_sets}")
-        
-        # Enable/disable deal button based on available sets
-        self.deal_button.setEnabled(available_sets == 0 and len(self.game.deck) > 0)
-        
-        # Update timer
-        self.timer_label.setText(f"Time: {self.game.get_formatted_time()}")
-    
-    def deal_cards(self):
-        """Deal 3 more cards."""
-        if self.game.deck and len(self.game.table) < 21:  # Safety limit of 21 cards
-            self.game.deal_more()
-            self.update_board()
-            self.update_game_info()
-    
-    def show_hint(self):
-        """Show a hint based on current hint mode."""
-        if not self.game.hint_enabled:
-            return
-        
-        # Get hint cards from game logic
-        hint_cards = self.game.get_hint_cards()
-        if not hint_cards:
-            return
-        
-        # Clear any existing glowing
-        self.board_widget.clear_all_glowing()
-        
-        # Apply glowing to hint cards
-        for card_pos in hint_cards:
-            if card_pos < len(self.board_widget.card_items):
-                card_item = self.board_widget.get_card_item(card_pos)
-                if card_item:
-                    card_item.set_glowing(True)
-        
-        # Clear glowing after 3 seconds
-        QTimer.singleShot(3000, self.board_widget.clear_all_glowing)
-    
-    def handle_card_selection(self, board_position: int, selected: bool):
-        """Handle card selection from board widget."""
-        # Update game state with selection
-        if selected:
-            self.game.selected.add(board_position)
-        else:
-            self.game.selected.discard(board_position)
-        
-        # Enable/disable Set button based on selection count
-        self.set_button.setEnabled(len(self.game.selected) == 3)
-        
-        # Auto-confirm mode: if Set button is disabled and 3 cards selected, auto-submit
-        if not self.game.set_button_enabled and len(self.game.selected) == 3:
-            self.submit_set()
-    
-    def submit_set(self):
-        """Submit selected cards as a set."""
-        if len(self.game.selected) != 3:
-            return
-        
-        # Capture card indices BEFORE submit_set modifies the table
-        selected_positions = sorted(self.game.selected)
-        card_indices = []
-        for pos in selected_positions:
-            if pos < len(self.game.table):
-                card_index = self._find_card_index(self.game.table[pos])
-                card_indices.append(card_index)
-        
-        # Submit the set to game logic
-        if self.game.submit_set():
-            # Valid set - update board
-            self.update_board()
-            self.update_game_info()
-            
-            # Add found set to sidebar using pre-captured card indices
-            self.add_found_set_to_sidebar(card_indices)
-            
-            # Check if game is over
-            if self.game.is_game_over():
-                self.show_game_over()
-            else:
-                # Update board to show remaining cards in proper layout
-                self.update_board()
-        else:
-            # Invalid set - show visual feedback
-            self.show_invalid_set_feedback()
-    
-    def show_invalid_set_feedback(self):
-        """Show visual feedback for invalid set selection."""
-        selected_cards = self.board_widget.get_selected_cards()
-        for card_pos in selected_cards:
-            card_item = self.board_widget.get_card_item(card_pos)
-            if card_item:
-                # Flash red border
-                card_item.highlight_rect.setPen(QPen(QColor(255, 0, 0), 4))  # Red border for error
-                card_item.is_in_error = True  # Mark as in error state
-        
-        # Reset after a short delay
-        QTimer.singleShot(1000, self.clear_invalid_feedback)
-    
-    def clear_invalid_feedback(self):
-        """Clear invalid set feedback."""
-        # Clear error state from all cards
-        for card_item in self.board_widget.card_items:
-            card_item.is_in_error = False
-            card_item.update_selection_highlight()
-            
-        # Update remaining selected cards to show yellow borders
-        selected_cards = self.board_widget.get_selected_cards()
-        for card_pos in selected_cards:
-            card_item = self.board_widget.get_card_item(card_pos)
-            if card_item and card_item.is_selected:
-                # Ensure remaining selected cards show yellow borders
-                card_item.update_selection_highlight()
 
-    def add_found_set_to_sidebar(self, cards: List[int]):
-        """Add a found set to the sidebar."""
-        import time
-        timestamp = time.strftime("%H:%M:%S")
-        self.sidebar.add_found_set(cards, timestamp)
+    def __init__(self, mode: GameMode = GameMode.CLASSIC, seed: int | None = None):
+        super().__init__()
+        self.game = Game()
+        self.leaderboard = Leaderboard()
+        self.sounds = SoundPlayer()
+        self.settings = GuiSettings.load()
+        self._overrides: dict[int, str] = {}  # temporary highlights: hint / error / success
+        self._busy = False  # True while a found SET is flashing before it is replaced
+        self._game_over_shown = False
+        self._available_sets = 0
+
+        self.setWindowTitle('SET Game')
+        self.resize(1000, 640)
+
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_layout = QVBoxLayout(central)
+        self._create_info_bar(main_layout)
+
+        content = QHBoxLayout()
+        self.board_widget = BoardWidget()
+        self.board_widget.card_clicked.connect(self.on_card_clicked)
+        content.addWidget(self.board_widget, 1)
+        self.sidebar = SidebarWidget()
+        self.sidebar.hide()
+        content.addWidget(self.sidebar)
+        main_layout.addLayout(content, 1)
+
+        self._create_controls(main_layout)
+        self._create_shortcuts()
+        self.statusBar().setSizeGripEnabled(False)
+
+        self.apply_settings(self.settings)
+        self.mode_combo.setCurrentIndex(self.mode_combo.findData(mode))
+        self.new_game(mode, seed)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.tick)
+        self.timer.start(250)
+
+    # ------------------------------------------------------------------ layout
+
+    def _create_info_bar(self, layout):
+        bar = QHBoxLayout()
+        self.mode_combo = QComboBox()
+        for mode in GameMode:
+            self.mode_combo.addItem(mode.label, mode)
+        self.mode_combo.setFocusPolicy(Qt.NoFocus)
+        self.mode_combo.setToolTip('Game mode (starts a new game)')
+        self.mode_combo.activated.connect(lambda _: self.new_game(self.mode_combo.currentData()))
+        bar.addWidget(self.mode_combo)
+
+        self.score_label = QLabel()
+        self.score_label.setToolTip(f'+{SET_POINTS} per SET, -{WRONG_PENALTY} per wrong guess, '
+                                    f'-{HINT_PENALTY} per hint')
+        self.sets_label = QLabel()
+        self.deck_label = QLabel()
+        self.available_sets_label = QLabel()
+        for label in (self.score_label, self.sets_label, self.deck_label, self.available_sets_label):
+            label.setObjectName('chip')
+            bar.addWidget(label)
+        bar.addStretch()
+
+        self.new_game_button = self._button('New Game', lambda: self.new_game(), 'primary', 'Ctrl+N')
+        self.scores_button = self._button('Best Scores', self.show_leaderboard)
+        self.show_sets_button = self._button('Show Found SETs', self.toggle_sidebar, 'accent')
+        self.settings_button = self._button('⚙', self.open_settings)
+        self.settings_button.setToolTip('Settings')
+        for button in (self.new_game_button, self.scores_button, self.show_sets_button, self.settings_button):
+            bar.addWidget(button)
+        layout.addLayout(bar)
+
+    def _create_controls(self, layout):
+        controls = QHBoxLayout()
+        self.deal_button = self._button('Deal 3 Cards', self.deal_cards, shortcut='D')
+        self.hint_button = self._button('Hint', self.show_hint, shortcut='H')
+        self.set_button = self._button('Set', self.submit_set, 'primary', 'Enter')
+        for button in (self.deal_button, self.hint_button, self.set_button):
+            controls.addWidget(button)
+        controls.addStretch()
+        keys_help = QLabel('Keys: 1-0 / Q-P pick cards · Enter submit · Esc clear · H hint · D deal')
+        keys_help.setStyleSheet('font-size: 8pt;')
+        controls.addWidget(keys_help)
+        self.timer_label = QLabel()
+        self.timer_label.setObjectName('timer')
+        controls.addWidget(self.timer_label)
+        layout.addLayout(controls)
+
+    @staticmethod
+    def _button(text, slot, object_name=None, shortcut=None) -> QPushButton:
+        button = QPushButton(text)
+        button.setFocusPolicy(Qt.NoFocus)  # keep keyboard shortcuts working
+        button.clicked.connect(slot)
+        if object_name:
+            button.setObjectName(object_name)
+        if shortcut:
+            button.setToolTip(f'Shortcut: {shortcut}')
+        return button
+
+    def _create_shortcuts(self):
+        for position, key in enumerate(CARD_KEYS):
+            QShortcut(QKeySequence(key), self, activated=lambda p=position: self.on_card_clicked(p))
+        for key in ('Return', 'Enter', 'Space'):
+            QShortcut(QKeySequence(key), self, activated=self.submit_set)
+        QShortcut(QKeySequence('H'), self, activated=self.show_hint)
+        QShortcut(QKeySequence('D'), self, activated=self.deal_cards)
+        QShortcut(QKeySequence('Escape'), self, activated=self.clear_selection)
+        QShortcut(QKeySequence('Ctrl+N'), self, activated=lambda: self.new_game())
+
+    # ---------------------------------------------------------------- settings
+
+    def apply_settings(self, settings: GuiSettings):
+        self.settings = settings
+        self.game.set_options(autodeal=settings.autodeal_enabled, hint_enabled=settings.hints_enabled)
+        self.game.set_hint_mode(settings.hint_mode)
+        self.game.set_button_enabled = settings.set_button_enabled
+        self.sounds.enabled = settings.sound_enabled
+
+        theme = get_theme(settings.theme)
+        QApplication.instance().setStyleSheet(stylesheet(theme))
+        self.board_widget.set_theme(theme.felt, {
+            'selected': theme.selected, 'hint': theme.hint,
+            'error': theme.error, 'success': theme.success,
+        })
+
+        self.hint_button.setVisible(settings.hints_enabled)
+        self.set_button.setVisible(settings.set_button_enabled)
+        self.available_sets_label.setVisible(settings.show_available)
+        if self.game.table:
+            self.refresh_board()  # auto-deal may have added cards
+
+    def open_settings(self):
+        dialog = SettingsDialog(self.settings, self)
+        dialog.settings_changed.connect(self.apply_settings)
+        dialog.exec()
+
+    # -------------------------------------------------------------- game flow
+
+    def new_game(self, mode: GameMode | None = None, seed: int | None = None):
+        self.game.new_game(mode or self.mode_combo.currentData(), seed)
+        self.mode_combo.setCurrentIndex(self.mode_combo.findData(self.game.mode))
+        self._overrides.clear()
+        self._busy = False
+        self._game_over_shown = False
+        self.sidebar.clear_history()
+        self.refresh_board(new_positions=set(range(len(self.game.table))))
+        self.statusBar().showMessage(f'New {self.game.mode.label} game. Find 3 cards where every feature '
+                                     'is all the same or all different.', MESSAGE_MS)
+
+    def on_card_clicked(self, position: int):
+        if self._busy or not self.game.game_active or position >= len(self.game.table):
+            return
+        if not self.game.toggle_selection(position):
+            self.statusBar().showMessage('You can only select 3 cards. Deselect one first.', MESSAGE_MS)
+            return
+        self._overrides = {p: s for p, s in self._overrides.items() if s == 'hint'}
+        self.refresh_states()
+        if len(self.game.selected) == 3 and not self.settings.set_button_enabled:
+            self.submit_set()
+
+    def clear_selection(self):
+        if not self._busy:
+            self.game.selected.clear()
+            self.refresh_states()
+
+    def submit_set(self):
+        if self._busy or len(self.game.selected) != 3:
+            return
+        positions = sorted(self.game.selected)
+        found_cards = tuple(self.game.table[p] for p in positions)
+        table_before = list(self.game.table)
+        result = self.game.submit_set()
+
+        if not result.valid:
+            self.sounds.play('wrong')
+            self.statusBar().showMessage(result.message, MESSAGE_MS)
+            self._flash({p: 'error' for p in positions}, ERROR_FLASH_MS)
+            self.update_game_info()
+            return
+
+        # Show the SET in place briefly, then replace it.
+        self.sounds.play('set')
+        self.statusBar().showMessage(f'SET! +{SET_POINTS} points', MESSAGE_MS)
+        self._busy = True
+        self.board_widget.display_cards(table_before)
+        self.board_widget.set_card_states(set(), {p: 'success' for p in positions})
+        QTimer.singleShot(SUCCESS_FLASH_MS, lambda: self._after_set_found(found_cards, table_before))
+
+    def _after_set_found(self, cards, table_before):
+        self._busy = False
+        self._overrides.clear()
+        self.sidebar.add_found_set(cards, time.strftime('%H:%M:%S'))
+        self.refresh_board(new_positions=self._changed_positions(table_before))
+        if not self.game.game_active:
+            self.show_game_over(time_up=False)
+
+    def _changed_positions(self, table_before) -> set[int]:
+        table = self.game.table
+        return {p for p, card in enumerate(table) if p >= len(table_before) or table_before[p] != card} \
+            if len(table) >= len(table_before) else set()
+
+    def deal_cards(self):
+        if self._busy or not self.deal_button.isEnabled():
+            return
+        before = list(self.game.table)
+        if self.game.deal_more():
+            self.sounds.play('deal')
+            self._overrides.clear()
+            self.refresh_board(new_positions=self._changed_positions(before))
+
+    def show_hint(self):
+        if self._busy or not self.game.hint_enabled or not self.game.game_active:
+            return
+        positions = self.game.get_hint_cards()
+        if not positions:
+            message = 'There is no SET on the table.'
+            if self.game.deck:
+                message += ' Deal 3 more cards.'
+            self.statusBar().showMessage(message, MESSAGE_MS)
+            return
+        self.sounds.play('hint')
+        self.statusBar().showMessage(f'Hint: -{HINT_PENALTY} points', MESSAGE_MS)
+        self._flash({p: 'hint' for p in positions}, HINT_SHOW_MS)
+        self.update_game_info()
+
+    def _flash(self, overrides: dict[int, str], duration_ms: int):
+        self._overrides.update(overrides)
+        self.refresh_states()
+        table = list(self.game.table)
+
+        def clear():
+            if self.game.table != table:
+                return  # the board changed; refresh_board already reset highlights
+            for position, state in overrides.items():
+                if self._overrides.get(position) == state:
+                    del self._overrides[position]
+            self.refresh_states()
+
+        QTimer.singleShot(duration_ms, clear)
+
+    def tick(self):
+        if self.game.check_time():
+            self.refresh_board()
+            self.show_game_over(time_up=True)
+        self._update_timer()
+
+    def show_game_over(self, time_up: bool):
+        if self._game_over_shown:
+            return
+        self._game_over_shown = True
+        self.sounds.play('game_over')
+        self.update_game_info()
+        rank = self.leaderboard.add(self.game.mode.value, self.game.score, self.game.sets_found,
+                                    self.game.elapsed_time)
+        result = game_over.GameOverDialog(self.game.get_game_statistics(), rank, time_up, self).exec()
+        if result == game_over.SHOW_SCORES:
+            self.show_leaderboard(rank)
+        elif result == game_over.NEW_GAME:
+            self.new_game()
+
+    def show_leaderboard(self, highlight_rank: int | None = None):
+        LeaderboardDialog(self.leaderboard, self.game.mode, highlight_rank or None, self).exec()
+
+    # ---------------------------------------------------------------- display
+
+    def refresh_board(self, new_positions: set[int] = frozenset()):
+        """Redraw all cards after the table changed."""
+        self._available_sets = self.game.available_set_count()
+        self.board_widget.display_cards(self.game.table, new_positions)
+        self.refresh_states()
+
+    def refresh_states(self):
+        self.board_widget.set_card_states(self.game.selected, self._overrides)
+        self.update_game_info()
+
+    def update_game_info(self):
+        game = self.game
+        self.score_label.setText(f'Score: {game.score}')
+        self.sets_label.setText(f'SETs: {game.sets_found}')
+        self.deck_label.setText(f'Deck: {len(game.deck)}')
+        self.available_sets_label.setText(f'On table: {self._available_sets}')
+        self.deal_button.setEnabled(game.game_active and bool(game.deck)
+                                    and len(game.table) < MAX_TABLE_CARDS)
+        self.hint_button.setEnabled(game.game_active)
+        self.set_button.setEnabled(game.game_active and len(game.selected) == 3)
+        self._update_timer()
+
+    def _update_timer(self):
+        remaining = self.game.time_remaining()
+        prefix = 'Time left' if remaining is not None else 'Time'
+        self.timer_label.setText(f'{prefix}: {self.game.get_formatted_time()}')
+        urgent = remaining is not None and remaining <= 10 and self.game.game_active
+        self.timer_label.setStyleSheet('background-color: #c0392b;' if urgent else '')
 
     def toggle_sidebar(self):
-        """Toggle the visibility of the sidebar."""
-        if self.sidebar.isVisible():
-            self.sidebar.hide()
-            self.show_sets_button.setText("Show Identified Sets")
-        else:
-            self.sidebar.show()
-            self.show_sets_button.setText("Hide Identified Sets")
-    
-    def open_settings(self):
-        """Open settings dialog."""
-        settings_dialog = SettingsDialog(self)
-        settings_dialog.settings_changed.connect(self.apply_settings_to_game)
-        settings_dialog.exec()
-    
-    def apply_settings_to_game(self):
-        """Apply settings from QSettings to game and UI."""
-        from PySide6.QtCore import QSettings
-        settings = QSettings("GameSet", "Settings")
-        
-        autodeal_enabled = settings.value("autodeal_enabled", False, type=bool)
-        hints_enabled = settings.value("hints_enabled", True, type=bool)
-        hint_mode = settings.value("hint_mode", "3", type=str)
-        set_button_enabled = settings.value("set_button_enabled", False, type=bool)
-        
-        # Apply to game state
-        self.game.set_options(autodeal=autodeal_enabled, hint_enabled=hints_enabled)
-        self.game.hint_mode = int(hint_mode)
-        self.game.set_button_enabled = set_button_enabled
-        
-        # Update UI elements based on settings
-        self.hint_button.setVisible(hints_enabled)
-        self.deal_button.setVisible(not autodeal_enabled)
-        self.set_button.setVisible(set_button_enabled)
-        
-        # Keep the game selection mode consistent for auto-submit behavior
-        self.set_button.setEnabled(len(self.game.selected) == 3 if set_button_enabled else False)
-
-    def load_settings(self):
-        """Load persisted settings and apply them to the game/UI."""
-        from PySide6.QtCore import QSettings
-        settings = QSettings("GameSet", "Settings")
-        
-        autodeal_enabled = settings.value("autodeal_enabled", False, type=bool)
-        hints_enabled = settings.value("hints_enabled", True, type=bool)
-        hint_mode = settings.value("hint_mode", "3", type=str)
-        set_button_enabled = settings.value("set_button_enabled", False, type=bool)
-        
-        self.game.set_options(autodeal=autodeal_enabled, hint_enabled=hints_enabled)
-        self.game.hint_mode = int(hint_mode)
-        self.game.set_button_enabled = set_button_enabled
-        
-        self.hint_button.setVisible(hints_enabled)
-        self.deal_button.setVisible(not autodeal_enabled)
-        self.set_button.setVisible(set_button_enabled)
-        self.set_button.setEnabled(False)
-        
-        # Ensure board display uses current hint and autodeal settings
-        self.update_game_info()
-
-    def show_game_over(self):
-        """Show game over dialog with statistics."""
-        stats = self.game.get_game_statistics()
-        
-        from PySide6.QtWidgets import QMessageBox
-        msg = QMessageBox()
-        msg.setWindowTitle("Game Over!")
-        msg.setText(f"Congratulations! You've completed the game.\n\n"
-                   f"Time: {stats['time_elapsed']}\n"
-                   f"Sets Found: {stats['sets_found']}\n"
-                   f"Final Score: {stats['final_score']}\n"
-                   f"Accuracy Rate: {stats['accuracy_rate']:.1f}%")
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.buttonClicked.connect(self.new_game)
-        msg.exec()
+        visible = not self.sidebar.isVisible()
+        self.sidebar.setVisible(visible)
+        self.show_sets_button.setText('Hide Found SETs' if visible else 'Show Found SETs')
 
 
-def run_gui():
+def run_gui(mode: GameMode = GameMode.CLASSIC, seed: int | None = None):
     """Entry point for GUI mode."""
-    app = QApplication(sys.argv)
-    
-    # Set application style
+    app = QApplication.instance() or QApplication(sys.argv)
     app.setStyle('Fusion')
-    
-    # Create and show main window
-    window = SetGameGUI()
+    window = SetGameGUI(mode, seed)
     window.show()
-    
     sys.exit(app.exec())

@@ -1,3 +1,5 @@
+> **Note:** this is a proposal; the files it describes have not been implemented.
+
 # License Compliance & Update Automation
 
 ## PySide6 License Requirements

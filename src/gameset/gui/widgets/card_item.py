@@ -1,97 +1,72 @@
-from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsItem, QGraphicsRectItem
-from PySide6.QtCore import Qt, QPointF
-from PySide6.QtGui import QPixmap, QColor, QPen, QBrush
-from typing import Optional
+from typing import Callable
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap, QColor, QPen, QFont, QBrush
+from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsRectItem, QGraphicsSimpleTextItem
 
 
 class CardItem(QGraphicsPixmapItem):
-    """Represents a single card in the game board."""
-    
-    def __init__(self, pixmap: QPixmap, card_index: int, parent=None):
-        super().__init__(pixmap, parent)
+    """One card on the board. It only displays state; the Game decides what is selected."""
+
+    def __init__(self, pixmap: QPixmap, card_index: int, board_position: int,
+                 key_label: str, on_click: Callable[[int], None]) -> None:
+        super().__init__(pixmap)
         self.card_index = card_index
-        self.board_position = -1  # Position on the board (0-11+)
-        self.is_selected = False
-        self.is_glowing = False
-        self.is_in_error = False  # Track error state for invalid sets
-        
-        # Highlight border rectangle
-        self.highlight_rect = QGraphicsRectItem(self.boundingRect(), self)
-        self.highlight_rect.setPen(QPen(Qt.black, 3))  # Default black border
-        self.highlight_rect.setBrush(Qt.NoBrush)
-        self.highlight_rect.setVisible(True)  # Always visible for border
-        
-        # Enable mouse events
-        self.setFlag(QGraphicsItem.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.ItemIsMovable, False)
-        
-        # Set cursor to pointing hand
+        self.board_position = board_position
+        self._on_click = on_click
+        self.setTransformationMode(Qt.SmoothTransformation)
         self.setCursor(Qt.PointingHandCursor)
-    
+        self.setAcceptHoverEvents(True)
+        self._hovered = False
+        self._state = 'normal'
+        self._colors = {'normal': QColor(Qt.black)}
+
+        self.highlight_rect = QGraphicsRectItem(self.boundingRect().adjusted(2, 2, -2, -2), self)
+        self.highlight_rect.setBrush(Qt.NoBrush)
+
+        # Keyboard shortcut shown in the top-left corner.
+        self.key_text = QGraphicsSimpleTextItem(key_label, self)
+        font = QFont()
+        font.setPixelSize(int(pixmap.height() * 0.13))
+        font.setBold(True)
+        self.key_text.setFont(font)
+        self.key_text.setBrush(QBrush(QColor('#8a9097')))
+        self.key_text.setPos(pixmap.height() * 0.06, pixmap.height() * 0.03)
+
+        self._apply()
+
+    def set_colors(self, colors: dict[str, QColor]) -> None:
+        self._colors = {'normal': QColor(Qt.black), **colors}
+        self._apply()
+
+    def set_state(self, state: str) -> None:
+        """One of: normal, selected, hint, error, success."""
+        if state != self._state:
+            self._state = state
+            self._apply()
+
+    @property
+    def state(self) -> str:
+        return self._state
+
+    def _apply(self) -> None:
+        width = 3 if self._state == 'normal' else 8
+        color = self._colors.get(self._state, QColor(Qt.black))
+        if self._state == 'normal' and self._hovered:
+            color, width = QColor('#7a8a99'), 5
+        self.highlight_rect.setPen(QPen(color, width))
+
+    def hoverEnterEvent(self, event):
+        self._hovered = True
+        self._apply()
+
+    def hoverLeaveEvent(self, event):
+        self._hovered = False
+        self._apply()
+
     def mousePressEvent(self, event):
-        """Handle mouse press events for card selection."""
         if event.button() == Qt.LeftButton:
-            # Check if we're trying to select a 4th card
-            if not self.is_selected:
-                # Count currently selected cards
-                selected_count = 0
-                if self.scene():
-                    for item in self.scene().items():
-                        if hasattr(item, 'is_selected') and item.is_selected:
-                            selected_count += 1
-                
-                # Prevent selecting 4th card
-                if selected_count >= 3:
-                    return  # Don't allow selection
-            
-            # Toggle selection
-            self.is_selected = not self.is_selected
-            self.update_selection_highlight()
-            
-            # Emit signal or notify parent (to be implemented in Phase 3)
-            if self.scene() and self.scene().parent() is not None:
-                self.scene().parent().handle_card_selection(self.board_position, self.is_selected)
+            self._on_click(self.board_position)
             event.accept()
-            return
-    
-    def set_board_position(self, position: int):
-        """Set the card's position on the board."""
-        self.board_position = position
-    
-    def set_selected(self, selected: bool):
-        """Set the card's selection state."""
-        if self.is_selected != selected:
-            self.is_selected = selected
-            self.update_selection_highlight()
-    
-    def set_glowing(self, glowing: bool):
-        """Set the card's glowing state for hints."""
-        if self.is_glowing != glowing:
-            self.is_glowing = glowing
-            self.update_selection_highlight()
-    
-    def update_selection_highlight(self):
-        """Update the visual appearance based on selection and glow states."""
-        if self.is_in_error:
-            self.highlight_rect.setPen(QPen(QColor(255, 0, 0), 4))  # Red border for error
-        elif self.is_selected:
-            self.highlight_rect.setPen(QPen(QColor(0, 100, 255), 4))  # Blue border for selected
-        elif self.is_glowing:
-            self.highlight_rect.setPen(QPen(QColor(0, 255, 0), 3))  # Green border for hint glow
         else:
-            self.highlight_rect.setPen(QPen(Qt.black, 3))  # Black border for normal
-    
-    def reset_state(self):
-        """Reset card to default state."""
-        self.is_selected = False
-        self.is_glowing = False
-        self.is_in_error = False
-        self.update_selection_highlight()
-    
-    def get_card_index(self) -> int:
-        """Get the card's index (0-80)."""
-        return self.card_index
-    
-    def get_board_position(self) -> int:
-        """Get the card's position on the board."""
-        return self.board_position
+            super().mousePressEvent(event)

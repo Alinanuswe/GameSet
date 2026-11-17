@@ -1,15 +1,17 @@
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QPainter, QPixmap, QPen, QBrush, QColor, QFont, QPainterPath
-from PySide6.QtWidgets import QApplication
-import math
+from PySide6.QtGui import QPainter, QPixmap, QPen, QBrush, QColor, QPainterPath
+
+from ..card import DECK_SIZE, index_to_card
 
 
 class CardRenderer:
     """Generates and caches all 81 SET game cards using base-3 indexing."""
     
-    # Card dimensions
+    # Logical card size. Pixmaps are drawn at SCALE times this so they stay sharp
+    # when the board is scaled up to fill a large window.
     CARD_WIDTH = 120
     CARD_HEIGHT = 80
+    SCALE = 2
     
     # Colors for cards
     COLORS = [
@@ -24,26 +26,20 @@ class CardRenderer:
     
     def _generate_all_cards(self):
         """Generate all 81 cards using base-3 indexing."""
-        for index in range(81):
+        for index in range(DECK_SIZE):
             pixmap = self._create_card_pixmap(index)
             self.card_pixmaps.append(pixmap)
     
     def _create_card_pixmap(self, index: int) -> QPixmap:
         """Create a single card pixmap from its base-3 index."""
-        # Convert index to 4-digit base-3: shape, color, number, shading
-        d3 = index // 27          # shape (0-2)
-        d2 = (index % 27) // 9    # color (0-2)  
-        d1 = (index % 9) // 3     # number (0-2)
-        d0 = index % 3            # shading (0-2)
-        
-        shape, color, number, shading = d3, d2, d1, d0
-        
-        # Create pixmap
-        pixmap = QPixmap(self.CARD_WIDTH, self.CARD_HEIGHT)
+        shape, color, number, shading = index_to_card(index)
+
+        pixmap = QPixmap(self.CARD_WIDTH * self.SCALE, self.CARD_HEIGHT * self.SCALE)
         pixmap.fill(Qt.white)
-        
+
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.Antialiasing)
+        painter.scale(self.SCALE, self.SCALE)
         
         # Draw card border
         painter.setPen(QPen(Qt.black, 2))
@@ -132,16 +128,18 @@ class CardRenderer:
         if 0 <= index < len(self.card_pixmaps):
             return self.card_pixmaps[index]
         raise ValueError(f"Card index {index} out of range (0-80)")
-    
+
     def get_card_size(self) -> QSize:
-        """Get the standard card size."""
-        return QSize(self.CARD_WIDTH, self.CARD_HEIGHT)
-    
-    @staticmethod
-    def index_to_card_tuple(index: int) -> tuple:
-        """Convert card index to (shape, color, number, shading) tuple."""
-        d3 = index // 27          # shape (0-2)
-        d2 = (index % 27) // 9    # color (0-2)
-        d1 = (index % 9) // 3     # number (0-2)
-        d0 = index % 3            # shading (0-2)
-        return (d3, d2, d1, d0)
+        """Size of a card pixmap in pixels."""
+        return QSize(self.CARD_WIDTH * self.SCALE, self.CARD_HEIGHT * self.SCALE)
+
+
+_shared: CardRenderer | None = None
+
+
+def shared_renderer() -> CardRenderer:
+    """One renderer for the whole app, so the 81 card images are only drawn once."""
+    global _shared
+    if _shared is None:
+        _shared = CardRenderer()
+    return _shared

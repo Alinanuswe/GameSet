@@ -1,3 +1,5 @@
+> **Note:** these are the original design notes. Some details (file names, the `Card` class, card symbols) have since changed; see [../architecture.md](../architecture.md) for the current structure.
+
 # GUI Design for SET Game
 
 ## User Story
