@@ -38,18 +38,20 @@ class SidebarWidget(QFrame):
         self.history_scroll.setWidget(self.history_widget)
         layout.addWidget(self.history_scroll)
 
-    def add_found_set(self, cards: tuple[Card, ...], timestamp: str) -> None:
+    def add_found_set(self, cards: tuple[Card, ...], timestamp: str, who: str | None = None) -> None:
         self.found_sets.append((cards, timestamp))
         self.empty_label.hide()
-        self.history_layout.insertWidget(0, self._create_set_widget(len(self.found_sets), cards, timestamp))
+        self.history_layout.insertWidget(
+            0, self._create_set_widget(len(self.found_sets), cards, timestamp, who))
         self.title.setText(f'Found SETs ({len(self.found_sets)})')
         self.history_scroll.verticalScrollBar().setValue(0)
 
-    def _create_set_widget(self, number: int, cards: tuple[Card, ...], timestamp: str) -> QWidget:
+    def _create_set_widget(self, number: int, cards: tuple[Card, ...], timestamp: str,
+                           who: str | None) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(4, 4, 4, 4)
-        header = QLabel(f'#{number}  ·  {timestamp}')
+        header = QLabel(f'#{number}  ·  {who}  ·  {timestamp}' if who else f'#{number}  ·  {timestamp}')
         header.setStyleSheet('font-size: 8pt; border: none;')
         layout.addWidget(header)
         row = QHBoxLayout()

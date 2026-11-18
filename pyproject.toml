@@ -32,8 +32,9 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "B", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-# The GUI tests must set QT_QPA_PLATFORM before importing Qt.
+# The GUI and network tests must set QT_QPA_PLATFORM before importing Qt.
 "tests/test_gui.py" = ["E402"]
+"tests/test_net.py" = ["E402"]
 
 [tool.mypy]
 python_version = "3.10"

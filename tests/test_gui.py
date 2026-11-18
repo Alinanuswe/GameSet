@@ -1,6 +1,7 @@
 """GUI behaviour tests. Run headless with QT_QPA_PLATFORM=offscreen (set below)."""
 
 import os
+import time
 
 import pytest
 
@@ -8,9 +9,10 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 QtWidgets = pytest.importorskip('PySide6.QtWidgets', exc_type=ImportError)
 
 from PySide6.QtCore import QSettings, Qt
+from PySide6.QtNetwork import QHostAddress
 from PySide6.QtTest import QTest
 
-from gameset.game import GameMode
+from gameset.game import SET_POINTS, WRONG_PENALTY, GameMode
 from gameset.gui import app as app_module
 from gameset.gui.dialogs import game_over
 from gameset.gui.dialogs import settings as settings_module
@@ -25,7 +27,8 @@ def qapp():
 
 
 @pytest.fixture
-def window(qapp, tmp_path, monkeypatch):
+def make_window(qapp, tmp_path, monkeypatch):
+    """Opens game windows (several for LAN tests) and closes them afterwards."""
     monkeypatch.setenv('GAMESET_SCORES', str(tmp_path / 'scores.json'))
     # On Windows QSettings defaults to the registry, which setPath cannot redirect,
     # so point the settings store at a file in tmp_path instead.
@@ -33,13 +36,25 @@ def window(qapp, tmp_path, monkeypatch):
     monkeypatch.setattr(settings_module, 'open_settings_store', lambda: QSettings(ini, QSettings.IniFormat))
     shown = []
     monkeypatch.setattr(game_over.GameOverDialog, 'exec', lambda self: shown.append(self) or game_over.CLOSE)
-    w = app_module.SetGameGUI(GameMode.CLASSIC, seed=5)
-    w.game_over_dialogs = shown
-    w.sounds.enabled = False
-    w.show()
-    yield w
-    w.timer.stop()
-    w.close()
+    windows = []
+
+    def make():
+        w = app_module.SetGameGUI(GameMode.CLASSIC, seed=5)
+        w.game_over_dialogs = shown
+        w.sounds.enabled = False
+        w.show()
+        windows.append(w)
+        return w
+
+    yield make
+    for w in windows:
+        w.timer.stop()
+        w.close()
+
+
+@pytest.fixture
+def window(make_window):
+    return make_window()
 
 
 def wait(ms):
@@ -178,3 +193,70 @@ def test_available_set_count_shown_by_default_and_can_be_hidden(window):
     assert window.available_sets_label.text() == f'SETs on table: {expected}'
     window.apply_settings(GuiSettings(show_available=False))
     assert not window.available_sets_label.isVisibleTo(window)
+
+
+def wait_until(condition, timeout=3.0):
+    end = time.monotonic() + timeout
+    while not condition():
+        if time.monotonic() > end:
+            raise AssertionError('timed out waiting')
+        wait(10)
+
+
+def test_local_multiplayer_claim_by_name(window):
+    window.start_local_multiplayer(['Ann', 'Ben'])
+    assert window.player_bar.isVisibleTo(window) and not window.hint_button.isVisibleTo(window)
+    while find_set(window.game.table) is None:
+        window.deal_cards()
+    for p in find_set(window.game.table):
+        window.on_card_clicked(p)
+    assert window.game.sets_found == 0  # nobody has claimed it yet
+    assert all(b.isEnabled() for b in window.player_bar.buttons)
+    window.player_bar.buttons[1].click()
+    wait(app_module.SUCCESS_FLASH_MS + 100)
+    assert [p.score for p in window.game.players] == [0, SET_POINTS]
+    assert window.sidebar.found_sets
+
+
+def test_local_multiplayer_wrong_claim_locks_player(window):
+    window.start_local_multiplayer(['Ann', 'Ben'])
+    for p in non_set(window.game.table):
+        window.on_card_clicked(p)
+    window.claim(0)
+    assert window.game.players[0].score == -WRONG_PENALTY
+    for p in non_set(window.game.table):
+        window.on_card_clicked(p)
+    window.refresh_states()
+    ann, ben = window.player_bar.buttons
+    assert not ann.isEnabled() and ben.isEnabled()
+    assert 'wait' in ann.text()
+
+
+def test_back_to_single_player(window):
+    window.start_local_multiplayer(['Ann', 'Ben'])
+    window.play_single()
+    assert not window.game.is_multiplayer and not window.player_bar.isVisibleTo(window)
+    assert window.hint_button.isVisibleTo(window)
+
+
+def test_lan_game_between_two_windows(make_window):
+    host, guest = make_window(), make_window()
+    assert host.host_lan('Ann', address=QHostAddress(QHostAddress.LocalHost), announce=False)
+    wait_until(lambda: host.is_lan)
+    guest.join_lan('127.0.0.1', host.lan_host.port, 'Ben')
+    wait_until(lambda: guest.is_lan and len(host.game.players) == 2)
+    assert not guest.new_game_button.isVisibleTo(guest)  # only the host starts games
+
+    host.new_game()
+    wait_until(lambda: guest.game.table and guest.game.game_active and host.game.game_active)
+    assert guest.game.table == host.game.table == host.lan_host.game.table
+
+    for p in find_set(guest.game.table):
+        guest.on_card_clicked(p)  # auto-confirm is on by default
+    wait_until(lambda: host.sidebar.found_sets and guest.sidebar.found_sets)
+    wait_until(lambda: [p.score for p in host.game.players] == [0, SET_POINTS])
+    assert guest.game.table == host.lan_host.game.table
+
+    host.leave_lan()  # the guest is told the game ended and goes back to playing alone
+    wait_until(lambda: not guest.is_lan)
+    assert not guest.game.is_multiplayer and guest.game.game_active

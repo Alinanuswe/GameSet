@@ -69,4 +69,8 @@ def stylesheet(t: Theme) -> str:
         }}
         QWidget#historyContents {{ background-color: {t.panel}; }}
         QStatusBar {{ color: {t.text}; font-weight: bold; }}
+        QPushButton#player {{ font-size: 12pt; font-weight: bold; padding: 6px 10px; }}
+        QPushButton#player[claimable="true"] {{ border: 2px solid {t.hint}; }}
+        QPushButton#player[me="true"] {{ border: 2px solid {t.selected}; }}
+        QLabel#lan {{ color: {t.muted}; font-weight: bold; }}
     """

@@ -3,9 +3,11 @@ import pytest
 from gameset.card import Card
 from gameset.deck import create_deck
 from gameset.game import (
+    HIDDEN_CARD,
     HINT_PENALTY,
     SET_POINTS,
     TIMED_LIMIT_SECONDS,
+    WRONG_LOCKOUT_SECONDS,
     WRONG_PENALTY,
     Game,
     GameMode,
@@ -202,3 +204,79 @@ def test_cannot_deal_while_a_set_is_on_the_table():
     assert not game.can_deal()
     assert not game.deal_more()
     assert len(game.table) == size
+
+
+# ------------------------------------------------------------------ multiplayer
+
+def make_multiplayer(clock=None) -> Game:
+    game = Game(clock) if clock else Game()
+    game.set_players(['Ann', 'Ben'])
+    game.new_game(seed=1)
+    while find_set(game.table) is None:
+        game.deal_more()
+    return game
+
+
+def test_multiplayer_credits_the_claiming_player():
+    game = make_multiplayer()
+    game.select_cards(list(find_set(game.table)))
+    result = game.submit_set(1)
+    assert result.valid and result.player == 1
+    assert (game.players[0].score, game.players[1].score) == (0, SET_POINTS)
+    assert game.players[1].sets_found == 1 and game.found_by == [1]
+
+
+def test_multiplayer_needs_a_claimant():
+    game = make_multiplayer()
+    game.select_cards(list(find_set(game.table)))
+    assert not game.submit_set().valid
+    assert len(game.selected) == 3  # nothing was used up
+
+
+def test_wrong_claim_locks_the_player_out_for_a_while():
+    clock = FakeClock()
+    game = make_multiplayer(clock)
+    game.select_cards(first_non_set(game.table))
+    assert game.submit_set(0).penalised
+    assert game.players[0].score == -WRONG_PENALTY
+    game.select_cards(list(find_set(game.table)))
+    locked = game.submit_set(0)
+    assert not locked.valid and not locked.penalised and 'wait' in locked.message
+    assert game.submit_set(1).valid  # the other player can still claim
+    clock.now += WRONG_LOCKOUT_SECONDS
+    assert game.lockout_remaining(0) == 0
+
+
+def test_submit_cards_by_identity_and_too_late():
+    game = make_multiplayer()
+    cards = [game.table[p] for p in find_set(game.table)]
+    assert game.submit_cards(cards, 0).valid
+    late = game.submit_cards(cards, 1)
+    assert not late.valid and not late.penalised and 'Too late' in late.message
+    assert game.players[1].score == 0
+
+
+def test_new_game_resets_players_but_keeps_them():
+    game = make_multiplayer()
+    game.select_cards(list(find_set(game.table)))
+    game.submit_set(0)
+    game.new_game(seed=2)
+    assert [p.name for p in game.players] == ['Ann', 'Ben']
+    assert all(p.score == 0 and p.sets_found == 0 for p in game.players)
+
+
+def test_ranking_orders_by_points_then_sets():
+    game = make_multiplayer()
+    game.players[0].score, game.players[1].score = 5, 20
+    assert [p.name for p in game.ranking()] == ['Ben', 'Ann']
+
+
+def test_public_state_round_trip_hides_the_deck():
+    host = make_multiplayer()
+    state = host.public_state()
+    assert 'deck' not in state
+    mirror = Game()
+    mirror.load_public_state(state)
+    assert mirror.table == host.table
+    assert len(mirror.deck) == len(host.deck) and set(mirror.deck) == {HIDDEN_CARD}
+    assert [p.name for p in mirror.players] == ['Ann', 'Ben']

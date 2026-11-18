@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+- Local multiplayer for 2-4 players on one screen or touchscreen: pick 3 cards, then click your
+  name (or press `F1`-`F4`) to claim the SET.
+- LAN multiplayer: host a game, or join one found automatically on the network (or by address).
+  The first claim to reach the host wins; players who drop out can rejoin with their score.
+- In multiplayer, a wrong claim costs 2 points and a 3-second wait before claiming again.
+
 ### Changed
 - Cards use the standard shapes: oval (pill), diamond and squiggle. The rounded-rectangle "bar" is replaced by the squiggle, and its terminal symbol changes from `B` to `S`.
 - Dealing 3 more cards is only allowed when there is no SET on the table (GUI and terminal).
