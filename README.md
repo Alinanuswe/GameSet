@@ -64,6 +64,25 @@ The best 10 scores in each mode are kept in `~/.gameset/scores.json` (set the
 `GAMESET_SCORES` environment variable to use a different file). See them with **Best Scores**,
 or `s` in the terminal version.
 
+### Playing together
+
+Choose **Players** (top right):
+
+* **Local multiplayer**: 2 to 4 players share one screen, which works well on a touchscreen.
+  Anyone picks 3 cards, then whoever found them clicks or taps their own name, or presses
+  `F1`-`F4`, to claim the SET. Several mice on one computer share a single pointer, so take turns
+  picking.
+* **Host LAN game**: start a game that others on the same network can join. Press
+  **Start Game** when everyone is in. Windows may ask you to allow the game through the firewall.
+* **Join LAN game**: games on your network are listed automatically. If yours isn't, type the
+  address shown next to *Hosting* on the host's screen.
+
+In both, a correct SET scores +10 for the player who claimed it. A wrong claim costs 2 points,
+and that player has to wait 3 seconds before claiming again. Hints are off. Over LAN, everyone
+picks on their own screen, the first claim to reach the host wins, and new cards are dealt
+automatically. A player who drops out can rejoin under the same name and keep their score.
+Multiplayer games are not added to Best Scores.
+
 ### Settings
 
 Auto-deal, hints and how many cards a hint reveals, Set button vs. auto-confirm, showing

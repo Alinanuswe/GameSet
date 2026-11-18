@@ -11,6 +11,11 @@ src/gameset/
 ├── game.py             # Game: table, selection, scoring, hints, modes, timer, end of game
 ├── scores.py           # Leaderboard stored as JSON
 ├── cli/runner.py       # terminal game loop
+├── net/                # LAN play
+│   ├── protocol.py     # JSON-lines messages, ports, version
+│   ├── host.py         # LanHost: runs the real Game, applies claims in arrival order
+│   ├── client.py       # LanClient: one player's connection to the host
+│   └── discovery.py    # UDP broadcast so players can find hosts on the network
 └── gui/
     ├── app.py          # SetGameGUI main window: wires the Game to the widgets
     ├── card_renderer.py# draws the 81 card images once (shared_renderer())
@@ -19,11 +24,13 @@ src/gameset/
     ├── widgets/
     │   ├── board_widget.py  # QGraphicsView that lays out and scales the cards
     │   ├── card_item.py     # one card; shows its state, reports clicks
+    │   ├── player_bar.py    # a button per player: claim (local) or show scores (LAN)
     │   └── sidebar.py       # list of SETs found
     └── dialogs/
         ├── settings.py      # GuiSettings (persisted with QSettings) + dialog
         ├── leaderboard.py   # best scores per mode
-        └── game_over.py     # end-of-game statistics
+        ├── multiplayer.py   # local player names, host and join dialogs
+        └── game_over.py     # end-of-game statistics or player ranking
 ```
 
 ## Key ideas
@@ -37,8 +44,17 @@ src/gameset/
   into the same positions. Cards are laid out column by column, so dealing extra cards adds a
   column on the right without moving the others.
 * `Game` takes an injectable `clock`, so timed games can be tested without waiting.
+* **Multiplayer lives in `Game`.** `Game.players` is empty in single player. With players,
+  `submit_set(player)` credits the claimant, and a wrong claim locks that player out briefly.
+* **Over LAN the host's `Game` is the only real one.** `LanHost` applies claims in the order they
+  arrive. A claim names its cards rather than their positions, so a claim on cards that are already
+  gone is "too late", not a wrong guess. Players' windows (the host's own window too, through a
+  loopback `LanClient`) keep a mirror `Game` filled from `Game.public_state()`, which never
+  includes the deck's order.
 
 ## Tests
 
 `tests/test_core.py` covers cards and SET logic, `tests/test_game.py` the game rules,
-`tests/test_scores.py` the leaderboard and `tests/test_gui.py` the main window (headless).
+`tests/test_scores.py` the leaderboard, `tests/test_net.py` a LAN host and players over
+loopback, and `tests/test_gui.py` the main window (headless), including two windows playing a
+LAN game.

@@ -1,5 +1,6 @@
 import csv
 import datetime
+import math
 import random
 import time
 from collections.abc import Callable
@@ -18,6 +19,12 @@ HINT_PENALTY = 3
 WRONG_PENALTY = 2
 
 TIMED_LIMIT_SECONDS = 180
+
+# Multiplayer: after a wrong guess a player must wait this long before claiming again.
+WRONG_LOCKOUT_SECONDS = 3.0
+
+# Stands in for the cards a LAN player cannot see: only the host knows the deck's order.
+HIDDEN_CARD: Card = (0, 0, 0, 0)
 
 
 class GameMode(str, Enum):
@@ -44,6 +51,23 @@ def daily_seed(day: datetime.date | None = None) -> int:
 class SubmitResult:
     valid: bool
     message: str
+    positions: tuple[int, ...] = ()
+    cards: tuple[Card, ...] = ()
+    player: int | None = None
+    penalised: bool = False  # False when the guess was refused without counting (locked, too late)
+
+
+@dataclass
+class Player:
+    name: str
+    score: int = 0
+    sets_found: int = 0
+    wrong_attempts: int = 0
+    locked_until: float = 0.0  # clock time until which this player cannot claim a SET
+
+    def reset(self) -> None:
+        self.score = self.sets_found = self.wrong_attempts = 0
+        self.locked_until = 0.0
 
 
 class Game:
@@ -58,6 +82,8 @@ class Game:
         self.wrong_attempts = 0
         self.hints_used = 0
         self.found_sets: list[tuple[Card, Card, Card]] = []
+        self.found_by: list[int | None] = []  # player index for each found SET (None in single player)
+        self.players: list[Player] = []  # empty in single player
         self.autodeal = False
         self.hint_enabled = True
         self.hint_mode: int = 3  # reveal 3, 2 or 1 card(s) of a SET
@@ -84,6 +110,9 @@ class Game:
         self.wrong_attempts = 0
         self.hints_used = 0
         self.found_sets.clear()
+        self.found_by.clear()
+        for player in self.players:
+            player.reset()
 
         self.start_time = self._clock()
         self.elapsed_time = 0.0
@@ -97,6 +126,27 @@ class Game:
         if hint_enabled is not None:
             self.hint_enabled = hint_enabled
         self._auto_deal_if_needed()
+
+    # ----------------------------------------------------------- multiplayer
+
+    @property
+    def is_multiplayer(self) -> bool:
+        return bool(self.players)
+
+    def set_players(self, names: list[str]) -> None:
+        """Play with these players (an empty list means single player). Takes effect immediately."""
+        self.players = [Player(name) for name in names]
+
+    def add_player(self, name: str) -> int:
+        self.players.append(Player(name))
+        return len(self.players) - 1
+
+    def lockout_remaining(self, player: int) -> float:
+        return max(0.0, self.players[player].locked_until - self._clock())
+
+    def ranking(self) -> list[Player]:
+        """Players from first to last: most points, then most SETs."""
+        return sorted(self.players, key=lambda p: (-p.score, -p.sets_found))
 
     def set_hint_mode(self, mode: int) -> None:
         """Set hint mode: 3 (3 cards), 2 (2 cards), or 1 (1 card)."""
@@ -130,22 +180,42 @@ class Game:
         self.selected.add(index)
         return True
 
-    def submit_set(self) -> SubmitResult:
+    def submit_set(self, player: int | None = None) -> SubmitResult:
+        """Check the selected cards. In multiplayer, `player` is who claimed them."""
         if not self.game_active:
             return SubmitResult(False, 'The game is over.')
         if len(self.selected) != 3:
             return SubmitResult(False, 'Select exactly 3 cards.')
+        if self.is_multiplayer:
+            if player is None or not 0 <= player < len(self.players):
+                return SubmitResult(False, 'Choose which player found the SET.')
+            wait = self.lockout_remaining(player)
+            if wait > 0:
+                return SubmitResult(False, f'{self.players[player].name} must wait {math.ceil(wait)}s '
+                                    'after a wrong guess.', player=player)
+        else:
+            player = None
         chosen = sorted(self.selected)
         c1, c2, c3 = (self.table[i] for i in chosen)
         self.selected.clear()
+        claimant = self.players[player] if player is not None else None
 
         if not is_set(c1, c2, c3):
             self.wrong_attempts += 1
             self.score -= WRONG_PENALTY
-            return SubmitResult(False, explain_not_set(c1, c2, c3))
+            if claimant:
+                claimant.wrong_attempts += 1
+                claimant.score -= WRONG_PENALTY
+                claimant.locked_until = self._clock() + WRONG_LOCKOUT_SECONDS
+            return SubmitResult(False, explain_not_set(c1, c2, c3), tuple(chosen), (c1, c2, c3),
+                                player, penalised=True)
 
         self.score += SET_POINTS
+        if claimant:
+            claimant.score += SET_POINTS
+            claimant.sets_found += 1
         self.found_sets.append((c1, c2, c3))
+        self.found_by.append(player)
         if len(self.table) <= TABLE_SIZE and self.deck:
             # Refill in place so the remaining cards keep their positions.
             new_cards = deal(self.deck, 3)
@@ -159,7 +229,19 @@ class Game:
 
         self._auto_deal_if_needed()
         self._check_finished()
-        return SubmitResult(True, 'SET!')
+        return SubmitResult(True, 'SET!', tuple(chosen), (c1, c2, c3), player, penalised=True)
+
+    def submit_cards(self, cards: list[Card], player: int | None = None) -> SubmitResult:
+        """Submit a SET by its cards rather than positions. Used over the network, where the table
+        may have changed since the player chose: cards already taken do not count as a wrong guess."""
+        wanted = [tuple(card) for card in cards]
+        if len(wanted) != 3 or len(set(wanted)) != 3:
+            return SubmitResult(False, 'Select exactly 3 cards.', player=player)
+        if not all(card in self.table for card in wanted):
+            return SubmitResult(False, 'Too late: another player already took one of those cards.',
+                                player=player)
+        self.selected = {self.table.index(card) for card in wanted}  # type: ignore[arg-type]
+        return self.submit_set(player)
 
     def can_deal(self) -> bool:
         """Dealing is only allowed when the deck has cards and no SET is on the table."""
@@ -186,6 +268,35 @@ class Game:
         self.hints_used += 1
         self.score -= HINT_PENALTY
         return list(hint[:self.hint_mode])
+
+    # ------------------------------------------------- network (LAN) state
+
+    def public_state(self) -> dict:
+        """Everything players may see, as JSON-friendly data. The deck's order stays secret."""
+        now = self._clock()
+        return {
+            'mode': self.mode.value,
+            'table': [list(card) for card in self.table],
+            'cards_left': len(self.deck),
+            'active': self.game_active,
+            'elapsed': self.get_elapsed_time(),
+            'players': [{'name': p.name, 'score': p.score, 'sets_found': p.sets_found,
+                         'wrong_attempts': p.wrong_attempts, 'locked': max(0.0, p.locked_until - now)}
+                        for p in self.players],
+        }
+
+    def load_public_state(self, state: dict) -> None:
+        """Mirror a host's game from public_state(). Unseen deck cards become HIDDEN_CARD."""
+        now = self._clock()
+        self.mode = GameMode(state['mode'])
+        self.table = [tuple(card) for card in state['table']]  # type: ignore[misc]
+        self.deck = [HIDDEN_CARD] * state['cards_left']
+        self.game_active = state['active']
+        self.elapsed_time = state['elapsed']
+        self.start_time = now - state['elapsed']
+        self.players = [Player(p['name'], p['score'], p['sets_found'], p['wrong_attempts'],
+                               now + p['locked']) for p in state['players']]
+        self.selected = {i for i in self.selected if i < len(self.table)}
 
     def available_set_count(self) -> int:
         return len(find_all_sets(self.table))
