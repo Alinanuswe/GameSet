@@ -58,6 +58,15 @@ def stylesheet(t: Theme) -> str:
         QComboBox, QTableWidget, QTabWidget::pane {{
             background-color: {t.panel}; color: {t.text}; border: 1px solid {t.border};
         }}
+        QComboBox QAbstractItemView, QListWidget, QLineEdit, QSpinBox {{
+            background-color: {t.panel}; color: {t.text}; border: 1px solid {t.border};
+            selection-background-color: {t.selected}; selection-color: white; outline: 0;
+        }}
+        QLineEdit:disabled, QSpinBox:disabled {{ color: {t.muted}; }}
+        QMenu {{ background-color: {t.panel}; color: {t.text}; border: 1px solid {t.border}; }}
+        QMenu::item {{ padding: 5px 20px; }}
+        QMenu::item:selected {{ background-color: {t.selected}; color: white; }}
+        QMenu::separator {{ height: 1px; background: {t.border}; margin: 4px 8px; }}
         QHeaderView::section {{ background-color: {t.window}; color: {t.text}; border: none; padding: 4px; }}
         QGroupBox {{
             font-weight: bold; border: 1px solid {t.border}; border-radius: 5px;
